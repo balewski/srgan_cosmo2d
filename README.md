@@ -1,5 +1,5 @@
 # srgan_cosmo2d 
-Application SRGAN to enhance simulations of 2D distribution of dark matter in the Universe.
+Application of SRGAN to enhance simulations of 2D distribution of dark matter in the Universe.
 This code takes LR image of size 128^2 and generates SR image of size 512^2. HR is the ground truth high-resolution image, ILR is interpolated LR image to 512^2.
 The example below was obtained after 15-hour training on one A100.
 <br> Fig. 1. Top: LR, ILR. Bottom: SR, HR. Magenta line defines 'skewer' which passes through the brightest pixel on the HR image
