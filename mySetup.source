@@ -1,0 +1,37 @@
+#.........................................................
+if [[ `hostname` == cori* ]]  || [[ `hostname` == cgpu*  ]] ; then
+   echo "on CoriGpu "
+   module load cgpu
+   module load pytorch
+   eval  `ssh-agent   -s`
+   ssh-add ~/.ssh/pdsf-nim.pem
+   echo 'Cori interactive 1x2 GPU:   salloc -C gpu  -c 10   --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A nstaff -N 1  -t4:00:00  --ntasks-per-node=2   '
+   echo Or local shifter:   shifter --image=nersc/pytorch:ngc-21.08-v2  bash
+#.........................................................
+elif [[   $NERSC_HOST == perlmutter  ]]   ; then
+   echo "on Perlmutter" 
+   eval  `ssh-agent   -s`
+   echo $NERSC_HOST  $SHELL
+   module load pytorch
+   echo 'PM interactive 1 node:   salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1   '
+   echo 'do:   export MASTER_ADDR=`hostname`'
+#.........................................................
+elif [[ `hostname -f ` == *olcf* ]]   ; then
+ echo "on Summit"
+ eval  `ssh-agent   -s`
+ ssh-add ~/.ssh/summit-4-git.pem
+ module load open-ce/1.1.3-py38-0
+ showusage
+ echo 'Summit interactive 1 node: bsub -Is -W 0:30 -nnodes 1 -P AST153 $SHELL '
+fi
+
+
+#SBATCH  -x cgpu08,cgpu11,cgpu14,cgpu07,cgpu12  # block sick nodes
+
+echo 'pytorch setup done for distributed training'
+python -V
+
+
+echo test shifter:    env |grep SHIFTER
+
+echo

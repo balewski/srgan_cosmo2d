@@ -1,0 +1,62 @@
+Defaults:
+  # note, CFS-based location will run slower vs. SCRATCH
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kB/
+  cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
+
+out_base: 
+  corigpu:  /global/cscratch1/sd/balewski/tmp_digitalMind/superRes-cgpu/august/
+  perlmutter: *CFS_OUT
+  
+data_path:
+  #corigpu: /global/cfs/cdirs/m3363/balewski/superRes-packed_h5/
+  corigpu:  *CFS_DATA
+  #perlmutter: /pscratch/sd/b/balewski/superRes-packed_h5/
+  perlmutter: *CFS_DATA
+  summit: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+
+myId: dev0-manual
+batch_size: 16
+# optional, reduces training samples
+max_samples_per_epoch: 256  # do 1400 or 256
+hr_size: 512
+upscale_factor: 4
+num_inp_chan: 1  # grey images
+#jnum_inp_chan=3  # RGB images
+
+comment: production config for Super-Resolution
+const_local_batch: true
+#max_epochs: 300
+model_conf:
+  comment: D+G models taken from  Lornatang Liu Changyu, https://github.com/Lornatang/SRGAN-PyTorch
+  print_summary: [0, 0]
+  tb_add_graph: null
+
+num_cpu_workers: 4
+opt_pytorch: {autotune: true, detect_anomaly: true, zerograd: true}
+save_checkpoint: false
+#tb_log_interval_steps: 5
+text_log_freq_per_epoch: 3
+train_conf:
+  D_LR: {decay_epochs: 400, gamma: 0.3, init: 3.e-5 }
+  G_LR: {decay_epochs: 300, gamma: 0.4, init: 4.e-5}
+  PG_LR: { init: 1.e-4}	
+  adv_warmup_epochs: 3
+
+  # Train epochs.
+  p_epochs:     5   #  generator training phase.
+  epochs:       10   #  adversarial training phase.
+
+  # Perceptual D-loss function weights:
+  pixel_weight: 0.2
+  content_weight: 1.
+  adversarial_weight: 0.02
+  spect_lavr_weight: 0.01
+  
+  # legacy variables
+  start_p_epoch: 0
+  start_epoch:            0    # ???The number of initial iterations of the adversarial training phase. When set to 0, it means incremental training.
+  resume:        False  # Set to `True` to continue training from checkpoint
+  resume_p_weight:     ""    # Restore the weight of the generator model during generator training.
+  resume_d_weight:        ""  
+  resume_g_weight:        ""   
+
