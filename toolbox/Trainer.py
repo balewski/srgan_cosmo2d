@@ -8,14 +8,18 @@ import logging  # to screen
 
 from toolbox.Dataloader_H5 import get_data_loader  # 1-cell (code is simpler)
 from toolbox.Util_IOfunc import read_yaml
+from toolbox.Util_H5io3 import  write3_data_hdf5
+
 #from toolbox.Model_3D import G,D
 
 from toolbox.Model_2d import Generator, Discriminator, ContentLoss
+from toolbox.Util_Torch import all_reduce_dict
 
 #from toolbox.tmp_figures import ( plt_slices, plt_power )
 from toolbox.tmp_TBSwriter import TBSwriter
 
 import torch.optim as optim
+
 
 #............................
 #............................
@@ -39,6 +43,9 @@ class Trainer(TBSwriter):
             expDir2=os.path.join(expDir, 'checkpoints')
             if not os.path.isdir(expDir2):  os.makedirs(expDir2)
             params['checkpoint_path'] = expDir2
+            expDir3=os.path.join(expDir, 'snapshots')
+            if not os.path.isdir(expDir3):  os.makedirs(expDir3)
+            params['val_mon_path'] = expDir3
         #params['resuming'] =  params['resume_checkpoint'] and os.path.isfile(params['checkpoint_path'])
         
         optTorch=params['opt_pytorch']
@@ -89,23 +96,17 @@ class Trainer(TBSwriter):
             dist.barrier()
             self.dist=dist # needed by this class member methods
             # wait for all ranks to finish downloading the data - lets keep some order
+        else:
+            self.dist=None # single GPU training
             
         if self.verb:
             # must know the number of steps to decided how often to print
-            params['text_log_interval_steps']=max(1,len(self.train_loader)//params['text_log_freq_per_epoch'])
+            params['text_log_interval_steps']=max(1,len(self.train_loader)//params['text_log_interval/epochs'])
             #logging.info('T:logger iterD: %s'%str(self.iterD))
                          
         if self.verb:
             logging.info('T:assemble G+D models')
 
-        #self.model=MyModel(params['model'], verb=self.verb).to(self.device)
-        #m2mCf=params['map2map_conf']
-
-        #inp_chan=inpMD['lowResShape'][0]
-        #out_chan=inpMD['highResShape'][0]
-        #scale_fact=m2mCf['scale_factor']
-        
-        #self.G_model = G(inp_chan,out_chan, scale_factor=scale_fact,verb=self.verb)
         self.G_model = Generator(params['num_inp_chan'],verb=self.verb)
         self.D_model = Discriminator(params['num_inp_chan'],verb=self.verb)
 
@@ -133,8 +134,8 @@ class Trainer(TBSwriter):
         self.D_opt = optim.Adam(self.D_model.parameters(), lr=trCf['D_LR']['init'])
 
 
-        self.G_sched = torch.optim.lr_scheduler.StepLR(self.G_opt, trCf['G_LR']['decay_epochs'], gamma=trCf['G_LR']['gamma'], verbose=0)
-        self.D_sched = torch.optim.lr_scheduler.StepLR(self.D_opt, trCf['D_LR']['decay_epochs'], gamma=trCf['D_LR']['gamma'], verbose=0)
+        self.G_sched = torch.optim.lr_scheduler.StepLR(self.G_opt, trCf['G_LR']['decay/epochs'], gamma=trCf['G_LR']['gamma'], verbose=0)
+        self.D_sched = torch.optim.lr_scheduler.StepLR(self.D_opt, trCf['D_LR']['decay/epochs'], gamma=trCf['D_LR']['gamma'], verbose=0)
 
 
         # Loss function.
@@ -186,7 +187,6 @@ class Trainer(TBSwriter):
                          'hostName' : socket.gethostname(),
                          'numRanks': params['world_size'],
                          'state': 'model_build',
-                         'input_meta':inpMD,
                          'total_train_samp':tot_train_samp,
                          'trainTime_sec':-1,
                          'loss_valid':-1,
@@ -199,29 +199,29 @@ class Trainer(TBSwriter):
     def train(self):
         if self.verb:
             logging.info("Starting Training Loop..., myRank=%d "%(self.params['world_rank']))
+            
         
-        startTrain = time.time()
-        TperEpoch=[]        
+        T0 = time.time()
         trCf=self.params['train_conf']
-        T0=time.time()
- 
+         
         start_p_epoch=trCf['start_p_epoch']
         p_epochs=trCf['p_epochs']
         start_epoch=trCf['start_epoch']
         epochs=trCf['epochs']
-
-        print('M:train start, epochs range: [%d,%d]'%(start_p_epoch, p_epochs),'device=',self.device)
-
+        
+        if self.verb:
+            logging.info('pretrain start, epochs range: [%d,%d] device=%s'%(start_p_epoch, p_epochs,str(self.device)))
+                                         
         # Initialize the evaluation indicators for the training stage of the generator model.
         best_psnr_value = 0.0
         # Train the generative network stage.
         for epoch in range(start_p_epoch, p_epochs):
             Ta=time.time()
             # Train each epoch for generator network.
-            self.train_generator( epoch)
+            self.pretrain_generator( epoch)
             Tb=time.time()
             # Verify each epoch for generator network.
-            psnr_value = self.validate( epoch, "generator")
+            psnr_value = self.validate( epoch, "gen")
             Tc=time.time()
             # Determine whether the performance of the generator network under epoch is the best.
             is_best = psnr_value > best_psnr_value 
@@ -234,34 +234,51 @@ class Trainer(TBSwriter):
                 if is_best:
                     torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "p-best.pth"))
 
-            print('PT:epoch %d  GEN train %.1f sec, val=%.1f sec, psnr=%.1f best_psnr=%.1f, elaT=%.1f min\n'%(epoch+1,Tb-Ta,Tc-Tb,psnr_value,best_psnr_value,(Tc-T0)/60))
-        # Save the weight of the last generator network under Epoch in this stage.
-        torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "p-last.pth"))
+            if self.verb: logging.info('PreTrain: epoch %d  train=%.1f sec, val=%.1f sec, psnr=%.1f best_psnr=%.1f, elaT=%.1f min\n'%(epoch,Tb-Ta,Tc-Tb,psnr_value,best_psnr_value,(Tc -T0)/60))
+        if self.isRank0:
+            # Save the weight of the last generator network under Epoch in this stage.
+            torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "p-last.pth"))
         # Initialize the evaluation index of the adversarial network training phase.
         best_psnr_value = 0.0
         psnrA=0.; psnrB=0.; psnrC=0. # for best epoch tag
-        # Load the model weights with the best indicators in the previous round of training.
-        self.G_model.load_state_dict(torch.load(os.path.join(exp_dir2, "p-best.pth")))
-        exp_dir2=self.params['checkpoint_path']
+
+        if 0:  # I'm not sure if the last model must be the best, OFF for now, skips IO
+            # Load the model weights with the best indicators in the previous round of training.
+            self.G_model.load_state_dict(torch.load(os.path.join(exp_dir2, "p-best.pth")))
+        #exp_dir2=self.params['checkpoint_path']
         gdict={}#tmp
-        
+
+        if self.verb:
+            logging.info('adv_train start, epochs range: [%d,%d] '%(start_epoch, epochs))
+
+        if self.isRank0:
+            TperEpoch=[]
+            locTrainSamp=len(self.train_loader)*self.train_loader.batch_size
+            locValSamp=len(self.valid_loader)*self.valid_loader.batch_size
+            kfac=self.params['world_size']/1.
+            
         # Training the adversarial network stage.
         for epoch in range(start_epoch, epochs):
             
             # Apply learning rate warmup
             if epoch < trCf['adv_warmup_epochs']:
                 self.G_opt.param_groups[0]['lr']=trCf['G_LR']['init']*float(epoch+1.)/trCf['adv_warmup_epochs']
-                self.D_opt.param_groups[0]['lr']=trCf['D_LR']['init']*float(epoch+1.)/trCf['adv_warmup_epochs']       
-                
+                self.D_opt.param_groups[0]['lr']=trCf['D_LR']['init']*float(epoch+1.)/trCf['adv_warmup_epochs']
                 
             # Train each epoch for adversarial network.
             Ta=time.time()
             self.train_adversarial(epoch,gdict)
             Tb=time.time()
             # Verify each epoch for adversarial network.
-            psnr_value = self.validate( epoch, "adversarial")
+            psnr_value = self.validate( epoch, "adv")
             Tc=time.time()
-            #  use running averag over last 3 epochs to tag best epoch
+            
+            # Adjust the learning rate of the adversarial model.
+            self.D_sched.step()
+            self.G_sched.step()
+
+            # ..... zoo of monitoring and checkpointing is below .....
+            #  use running average over last 3 epochs to tag best epoch
             is_best=False
             if  epoch>0.3* epochs:
                 psnrC=psnrB
@@ -272,96 +289,114 @@ class Trainer(TBSwriter):
                     is_best =True
                     best_psnr_value = psnrAvr
 
-            # Save the weight of the adversarial network under epoch. If the performance of the adversarial network
-            # under epoch is the best, it will save two additional files ending with `-best.pth` in the `results` directory.
+            # Save the weight of the adversarial network under epoch. 
             if self.isRank0:
-                torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, f"d-epoch{epoch + 1}.pth"))
-                torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, f"g-epoch{epoch + 1}.pth"))
+                torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, f"d-epoch{epoch }.pth"))
+                torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, f"g-epoch{epoch }.pth"))
             if is_best and self.isRank0:
-                torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, "d-best%d.pth"%(epoch+1)))
-                torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "g-best%d.pth"%(epoch+1)))
-                txt='Epoch %d ADV best PSNR=%.2f elaT=%.1f sec'%(epoch+1,best_psnr_value,time.time()-T0)
-                self.TBSwriter.add_text('summary',txt , epoch+1)
-                print(txt)
-            print('M:epoch %d  ADV train %.1f sec, val=%.1f sec, psnr=%.2f best_psnr=%.2f, elaT=%.1f min\n'%(epoch+1,Tb-Ta,Tc-Tb,psnr_value,best_psnr_value,(Tc-T0)/60))
-            # Adjust the learning rate of the adversarial model.
-            self.D_sched.step()
-            self.G_sched.step()
+                torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, "d-best%d.pth"%(epoch)))
+                torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "g-best%d.pth"%(epoch)))
+                txt='Epoch %d ADV best PSNR=%.2f elaT=%.1f min, job=%s'%(epoch,best_psnr_value,(time.time()-T0)/60.,self.params['job_id'])
+                self.TBSwriter.add_text('summary',txt , epoch)
+                logging.info(txt)
+                
             
-            if self.isRank0: # monitor LR
+            if self.isRank0: # monitor LR & speed
                 recLR={'G':self.G_opt.param_groups[0]['lr'],'D':self.D_opt.param_groups[0]['lr']}
                 #print('JJ:',epoch, recLR)
-                self.TBSwriter.add_scalars('ADV_LR',recLR , epoch+1)
+                self.TBSwriter.add_scalars('Train_adv/LR',recLR , epoch)
+                Ttot=Tc-Ta
+                Ttrain=Tb-Ta
+                Tval=Tc-Tb
+                rec2={'train':Ttrain,'tot':Ttot,'val':Tval}  # time per epoch
+                rec3={'train':kfac*locTrainSamp/Ttrain}  # train glob samp/msec
+                if epoch>start_epoch: TperEpoch.append(Ttot)
+
+                rec3.update({'val:20':kfac*locValSamp/Tval/20.})  # val glob samp/msec
+                self.TBSwriter.add_scalars("Train_adv/glob_speed (samp:sec)",rec3 , epoch)
+                self.TBSwriter.add_scalar("Train_adv/epoch_time (sec)", Ttot,epoch)
                 
+                tV=np.array(TperEpoch)
+                if len(tV)>1:
+                    tAvr=np.mean(tV); tStd=np.std(tV)/np.sqrt(tV.shape[0])
+                else:
+                    tAvr=tStd=-1
 
+                txt='ADV epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f min, nGpu=%d, psnr=%.2f best_psnr=%.2f'%(epoch, Ttot, tAvr,tStd,(Tc-T0)/60.,self.params['world_size'],psnr_value,best_psnr_value)
+                logging.info(txt)
+                                                            
+                
+        # = = = =  end of Loop-over-advEpochs = = = = = = = 
         if self.isRank0:
-            # Save the weight of the adversarial network under the last epoch in this stage.
-
+            # Save the weight of the adversarial network under the last epoch
             torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, "d-last.pth"))
             torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "g-last.pth"))
-        print('T:done exp_dir2:',exp_dir2)
+            print('T:done exp_dir2:',exp_dir2)
 
 
-        if self.isRank0:  # create summary record
-          # add info to summary
-          if 1:
+        if self.isRank0:  # add info to summary, cleanup          
             rec={'epoch_stop':epoch, 'state':'model_trained'} 
-            rec['trainTime_sec']=time.time()-startTrain
-            #1 rec['timePerEpoch_sec']=[float('%.2f'%x) for x in [tAvr,tStd] ]
+            rec['trainTime_sec']=time.time()-T0
+            rec['timePerAdverEpoch_sec']=[float('%.2f'%x) for x in [tAvr,tStd] ]
+            
             self.sumRec.update(rec)
             return
- 
-#...!...!..................
-    def train_generator(self, epoch) -> None:
-        """Training the generator network.
 
-        Args:
-            train_dataloader (torch.utils.data.DataLoader): The loader of the training dataset.
-            epoch (int): number of training cycles.
-        """
+        
+#...!...!..................
+    def pretrain_generator(self, epoch):  # one epoch
+        # Pre-training the generator network only.
+        tbeg = time.time()
         # Calculate how many iterations there are under epoch.
         batches = len(self.train_loader)
         # Set generator network in training mode.
         self.G_model.train()
-
+        cnt={'pixel_loss':0.}
         for index, (lr, hr) in enumerate(self.train_loader):
             # Copy the data to the specified device.
             lr = lr.to(self.device)
             hr = hr.to(self.device)
-            #print('tt',lr.shape,hr.shape,hr.dtype)
+            
             # Initialize the gradient of the generator model.
             if self.params['opt_pytorch']['zerograd']:
                 # EXTRA: Use set_to_none option to avoid slow memsets to zero
                 self.G_model.zero_grad(set_to_none=True)
             else:
                 self.G_model.zero_grad()
+                
             # Generate super-resolution images.
             sr = self.G_model(lr)
-            #print('tt2',sr.shape,sr.dtype); ok67
+            
             # Calculate the difference between the super-resolution image and the high-resolution image at the pixel level.
             pixel_loss = self.pixel_criterion(sr, hr)
             # Update the weights of the generator model.
             pixel_loss.backward()
             self.PG_opt.step()
-            # Write the loss during training into Tensorboard.
-            iters = index + epoch * batches + 1
-            if self.isRank0: self.TBSwriter.add_scalar("Train_Generator/Loss_pixel", pixel_loss.item(), iters)
-            # Print the loss function every ten iterations and the last iteration in this epoch.
-            if (index + 1) % 30 == 0 or (index + 1) == batches:
-                print(f"Train Epoch[{epoch + 1:04d}]({index + 1:05d}/{batches:05d}) "
-                      f"Loss: {pixel_loss.item():.6f}.")
+            
+            # ..... only monitoring is below
+            cnt['pixel_loss']+=pixel_loss
+            if self.isRank0:
+                if index % self.params['text_log_interval_steps']==0 and self.verb:
+                    print(f"Train Epoch[{epoch:04d}]({index:05d}/{batches:05d}) Loss: {pixel_loss:.6f}.")
 
+        # end of epoch, compute summary
+        for x in cnt: cnt[x]/=batches
 
-    def train_adversarial(self, epoch, gdict) -> None:
-        """Training the adversarial network.
+        cnt=all_reduce_dict(cnt,self.dist)
 
-        Args:
-            train_dataloader (torch.utils.data.DataLoader): The loader of the training dataset.
-            epoch (int): number of training cycles.
-        """
+        tend = time.time()
+        if self.isRank0:
+            self.TBSwriter.add_scalar("Train_gen/Loss_pixel", cnt['pixel_loss'],epoch)
+            self.TBSwriter.add_scalar("Train_gen/epoch_time (sec)", (tend-tbeg),epoch)
+            
+#...!...!..................
+    def train_adversarial(self, epoch, gdict):  # one epoch
+        # Training the adversarial network.
+
         trCf=self.params['train_conf']
         # Calculate how many iterations there are under Epoch.
         batches = len(self.train_loader)
+        cnt={x:0. for x in ['pixel_loss','advers_loss','content_loss','g_loss','d_hr','d_sr1','d_loss']}
         # Set adversarial network in training mode.
         self.D_model.train()
         self.G_model.train()
@@ -384,14 +419,14 @@ class Trainer(TBSwriter):
             output = self.D_model(hr)
             d_loss_hr = self.adversarial_criterion(output, real_label)
             d_loss_hr.backward()
-            d_hr = output.mean().item()
+            d_hr = output.mean()
             # Generate super-resolution images.
             sr = self.G_model(lr)
             # Calculate the loss of the discriminator model on the super-resolution image.
             output = self.D_model(sr.detach())
             d_loss_sr = self.adversarial_criterion(output, fake_label)
             d_loss_sr.backward()
-            d_sr1 = output.mean().item()
+            d_sr1 = output.mean()
             # Update the weights of the discriminator model.
             d_loss = d_loss_hr + d_loss_sr
             self.D_opt.step()
@@ -405,9 +440,9 @@ class Trainer(TBSwriter):
             output = self.D_model(sr) #  len=BS filled w/ probabilities of being real
 
             # Perceptual_loss= weighted sum:  pixel + content +  adversarial + power_spect
-            adversarial_loss =  self.adversarial_criterion(output, real_label)
-            pixel_loss =  self.pixel_criterion(sr, hr.detach())
-            perceptual_loss =  self.content_criterion(sr, hr.detach())
+            advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label)
+            pixel_loss  = trCf['pixel_weight'] *self.pixel_criterion(sr, hr.detach())
+            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hr.detach())
 
             ''' add later
             # Add spectral loss
@@ -417,57 +452,54 @@ class Trainer(TBSwriter):
             '''
             
             # Update the weights of the generator model.
-            g_loss = trCf['pixel_weight'] *pixel_loss + trCf['content_weight'] *perceptual_loss + trCf['adversarial_weight'] *adversarial_loss #1+ spect_loss
+            g_loss = pixel_loss + content_loss + advers_loss #1+ spect_loss
             g_loss.backward()
             self.G_opt.step()
-            d_sr2 = output.mean().item()
-            #print('J:d_sr1,2',d_sr1,d_sr2)
-            # Write the loss during training into Tensorboard.
-            iters = index + epoch * batches + 1
+            d_sr2 = output.mean().item()  # what is the purpose of 'sr2' ???
+            
+            # ..... only monitoring is below
+            cnt['d_hr']+=d_hr
+            cnt['d_sr1']+=d_sr1
+            cnt['d_loss']+=d_loss
+            cnt['pixel_loss']+=pixel_loss
+            cnt['advers_loss']+=advers_loss
+            cnt['content_loss']+=content_loss
+            cnt['g_loss']+=g_loss
+
             if self.isRank0:
-                self.TBSwriter.add_scalar("Train_Adversarial/D_Loss", d_loss.item(), iters)
-                self.TBSwriter.add_scalar("Train_Adversarial/G_Loss", g_loss.item(), iters)
-                self.TBSwriter.add_scalar("Train_Adversarial/G_pixel", pixel_loss.item(), iters)
-                self.TBSwriter.add_scalar("Train_Adversarial/G_content", perceptual_loss.item(), iters)
-                '''
-                recSPE={'2*lmean':2*spec_lmean,'lstd':spec_lsdev}
-                writer.add_scalars("Train_Adversarial/Power_spect", recSPE, iters)
+                if index % self.params['text_log_interval_steps']==0 and self.verb:
+                    print(f"Train stage: adversarial "
+                          f"Epoch[{epoch + 1:04d}]({index + 1:05d}/{batches:05d}) "
+                          f"D Loss: {d_loss.item():.3g} G Loss: {g_loss.item():.3g} "
+                          f"D(HR): {d_hr:.6f} D(SR1)/D(SR2): {d_sr1:.3g}/{d_sr2:.3g}.")
+        # end of epoch, compute summary
+        for x in cnt: cnt[x]/=batches
+        #print('bef',self.params['world_rank'],cnt)
+        cnt=all_reduce_dict(cnt,self.dist)
+        if self.isRank0:
+            for x in ['g_loss','d_loss']:
+                self.TBSwriter.add_scalar("Train_adv/"+x, cnt[x],epoch)
+                
+            rec={x:cnt[x] for x in ['pixel_loss','advers_loss','content_loss'] }
+            rec['sum']=cnt ['g_loss']
+            self.TBSwriter.add_scalars("Train_adv/g_itemized", rec, epoch)
 
-                writer.add_scalar("Train_Adversarial/G_spect", spect_loss, iters)
-                #writer.add_scalar("Train_Adversarial/Power_lsdev", spec_lsdev, iters)
-                #writer.add_scalar("Train_Adversarial/Power_lmean2", aa, iters)
-                '''
-                self.TBSwriter.add_scalar("Train_Adversarial/G_xentr", adversarial_loss.item(), iters)
-                self.TBSwriter.add_scalar("Train_Adversarial/D_hr", d_hr, iters)
-                self.TBSwriter.add_scalar("Train_Adversarial/D_sr1", d_sr1, iters)
-                #writer.add_scalar("Train_Adversarial/D_SR2", d_sr2, iters)
-                # Print the loss function every ten iterations and the last iteration in this Epoch.
-            if index % self.params['text_log_interval_steps']==0 and self.verb:
-                print(f"Train stage: adversarial "
-                      f"Epoch[{epoch + 1:04d}]({index + 1:05d}/{batches:05d}) "
-                      f"D Loss: {d_loss.item():.3g} G Loss: {g_loss.item():.6f} "
-                      f"D(HR): {d_hr:.6f} D(SR1)/D(SR2): {d_sr1:.3g}/{d_sr2:.3g}.")
+            rec={x:cnt[x] for x in ['d_hr','d_sr1'] }
+            self.TBSwriter.add_scalars("Train_adv/d_hr_sr", rec, epoch)
 
-
+            
+#...!...!..................
     def validate(self, epoch, stage) -> float:
-        """Verify the generator model.
-
-        Args:
-            valid_dataloader (torch.utils.data.DataLoader): loader for validating dataset.
-            epoch (int): number of training cycles.
-            stage (str): In which stage to verify, one is `generator`, the other is `adversarial`.
-
-        Returns:
-            PSNR value(float).
+        """ Verify the generator model on validation data
+            stage (str): only to redirect the printouts.
+        Returns: PSNR value(float).
         """
         # Calculate how many iterations there are under epoch.
         batches = len(self.valid_loader)
         # Set generator model in verification mode.
         self.G_model.eval()
-        # Initialize the evaluation index.
-        total_psnr_value = 0.0
-
         with torch.no_grad():
+            cnt={'psnr':0.}
             for index, (lr, hr) in enumerate(self.valid_loader):
                 # Copy the data to the specified device.
                 lr = lr.to(self.device)
@@ -476,15 +508,38 @@ class Trainer(TBSwriter):
                 sr = self.G_model(lr)
                 # Calculate the PSNR indicator.
                 mse_loss = self.psnr_criterion(sr, hr)
-                psnr_value = 10 * torch.log10(1 / mse_loss).item()
-                total_psnr_value += psnr_value
+                psnr_value = 10 * torch.log10(1 / mse_loss)                
+                cnt['psnr']+=psnr_value
+               
+            # end of epoch, compute summary
+            for x in cnt: cnt[x]/=batches
+            cnt=all_reduce_dict(cnt,self.dist)
 
-            avg_psnr_value = total_psnr_value / batches
             # Write the value of each round of verification indicators into Tensorboard.
             if self.isRank0:
-                if stage == "generator":
-                    self.TBSwriter.add_scalar("Val_Generator/PSNR", avg_psnr_value, epoch + 1)
-                elif stage == "adversarial":
-                    self.TBSwriter.add_scalar("Val_Adversarial/PSNR", avg_psnr_value, epoch + 1)
+                self.TBSwriter.add_scalar("Train_%s/Val_PSNR"%stage,cnt['psnr'] , epoch)
+                
+                if self.params['pred_dump_interval/epochs']:
+                    if epoch% self.params['pred_dump_interval/epochs']==0:
+                        outF=os.path.join(self.params['val_mon_path'],'valid-%s-epoch%d.h5'%(stage,epoch))
+                        logging.info('pred dump '+outF)
+                        bigD={'lr':lr,'sr':sr,'hr':hr}                        
+                        # convert images to fileds
+                        for x in bigD:
+                            y=bigD[x]
+                            z=y.detach().cpu().numpy()
+                            bigD[x]=np.exp(z).astype(np.float32)
+                        metaD={}
+                        for x in ['sim3d','field2d']:
+                            metaD[x]=self.params[x]
+                        metaD['domain']='valid_batch'
+                        metaD['jobId']=self.params['job_id']
+                        metaD['numSamples']=int(lr.shape[0])
+                        metaD['modelDesign']=self.params['myId']
+                        metaD['model_path']='train dump'
+                        metaD['gen_sol']='%s-epoch%d'%(stage,epoch)
+                        
+                        #print('DDD');pprint(metaD)
+                        write3_data_hdf5(bigD,outF,metaD=metaD,verb=0)
                     
-        return avg_psnr_value
+        return cnt['psnr']

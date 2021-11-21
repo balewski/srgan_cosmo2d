@@ -1,0 +1,232 @@
+#!/usr/bin/env python
+""" 
+read trained net : model+weights
+read test data from HD5
+infere for  test data 
+
+Inference works alwasy on 1 GPU or CPUs
+
+ ./predict.py  --modelPath /global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp10
+
+
+"""
+
+__author__ = "Jan Balewski"
+__email__ = "janstar1122@gmail.com"
+
+import numpy as np
+import torch
+from pprint import pprint
+import  time
+import sys,os
+import logging
+logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
+from toolbox.Model_2d import Generator
+from toolbox.Util_IOfunc import read_yaml, write_yaml
+from toolbox.Dataloader_H5 import get_data_loader
+from toolbox.Util_Cosmo2d import interpolate_2Dimage
+from toolbox.Util_H5io3 import  write3_data_hdf5
+
+
+import argparse
+
+#...!...!..................
+def get_parser():
+    parser = argparse.ArgumentParser()
+    #parser.add_argument("--facility", default='corigpu', type=str)
+    parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
+
+    parser.add_argument("-m","--modelPath",
+                        default='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp10'
+                        , help="trained model ")
+    parser.add_argument("-s","--genSol",default="last",help="generator solution")
+    parser.add_argument("--domain",default='test', help="domain is the dataset for which predictions are made, typically: test")
+
+    parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")
+ 
+    parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
+
+    parser.add_argument("-n", "--numSamples", type=int, default=100, help="limit samples to predict")
+    parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
+
+   
+    args = parser.parse_args()
+    #args.prjName='neurInfer'
+    args.outPath+'/'
+    for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
+    return args
+
+#...!...!..................
+def Xload_model(trainPar,modelPath):
+    device = torch.device("cuda")
+    # ... assemble model
+    model      = Generator(trainPar['num_inp_chan']).to(device)
+    allD=torch.load(modelPath, map_location=str(device))
+    print('all model ok',list(allD.keys()))
+    stateD=allD["model_state"]
+    keyL=list(stateD.keys())
+    if 'module' not in keyL[0]:
+        ccc={ 'module.%s'%k:stateD[k]  for k in stateD}
+        stateD=ccc
+    model2.load_state_dict(stateD)
+ 
+    exit(0)
+
+    
+
+    
+    # load entirel model
+    modelF = os.path.join(modelPath, trainMD['train_params']['blank_model'])
+    stateF= os.path.join(modelPath, trainMD['train_params']['checkpoint_name'])
+
+    model = torch.load(modelF)
+    model2 = torch.nn.DataParallel(model)
+    allD=torch.load(stateF, map_location=str(device))
+    print('all model ok',list(allD.keys()))
+    stateD=allD["model_state"]
+    keyL=list(stateD.keys())
+    if 'module' not in keyL[0]:
+      ccc={ 'module.%s'%k:stateD[k]  for k in stateD}
+      stateD=ccc
+    model2.load_state_dict(stateD)
+    return model2
+
+#...!...!..................
+def model_infer(model,data_loader,trainPar):
+    #device=torch.cuda.current_device()   
+    model.eval()
+
+    # prepare output container, Thorsten's idea
+    num_samp=len(data_loader.dataset)
+    hr_size=trainPar['hr_size']
+    lr_size=trainPar['lr_size']
+    inp_chan=trainPar['num_inp_chan']
+    upscale=trainPar['upscale_factor']
+    print('predict for num_samp=',num_samp,', hr_size=',hr_size,inp_chan)
+    
+    # clever list-->numpy conversion, Thorsten's idea
+    HRall=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
+    LRall=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
+    ILRall=np.empty_like(HRall)
+    SRall=np.empty_like(HRall)
+    print('P0',HRall.shape)
+    nSamp=0
+    nStep=0
+    with torch.no_grad():
+        for lrImg,hrImg in data_loader:
+            lrImg_dev, hrImg_dev = lrImg.to(device), hrImg.to(device)
+            #print('P1:',lr.shape)
+            srImg_dev = model(lrImg_dev)           
+            srImg=srImg_dev.cpu()
+            n2=nSamp+srImg.shape[0]
+            print('nn',nSamp,n2)
+            # convert images to densities
+            lr=np.exp(lrImg.detach()).numpy()
+            hr=np.exp(hrImg.detach()).numpy()
+            sr=np.exp(srImg.detach()).numpy()
+
+            HRall[nSamp:n2,:]=hr    
+            SRall[nSamp:n2,:]=sr
+            LRall[nSamp:n2,:]=lr
+
+            # compute interploated LR
+            print('lrImg',lrImg.shape) # B,C,W,H
+            #print('lrImg.T',lrImg.T.shape) # C,W,H
+            # must put channel as the last axis
+            #d=lr.shape[1]
+            x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
+            x3,_=interpolate_2Dimage(x2, upscale)
+            print('x3',x3.shape)
+            #d*=upscale
+            fact=upscale*upscale
+            ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
+            print('ilr',ilr.shape) # B,C,W,H
+            ILRall[nSamp:n2,:]=ilr
+            nSamp=n2
+            nStep+=1
+    
+    print('infere done, nSamp=%d nStep=%d'%(nSamp,nStep),flush=True)
+    bigD={'lr':LRall,'ilr':ILRall,'sr':SRall,'hr':HRall}
+
+
+    return bigD,nSamp
+
+  
+#=================================
+#=================================
+#  M A I N 
+#=================================
+#=================================
+if __name__ == '__main__':
+    args=get_parser()
+        
+    sumF=os.path.join(args.modelPath,'sum_train.yaml')
+    trainMD = read_yaml( sumF)
+    trainPar=trainMD['train_params']
+    trainPar['world_size']=1
+    trainPar['world_rank']=0
+    if args.numSamples!=None:
+        trainPar['max_glob_samples_per_epoch' ] = args.numSamples
+
+    pprint(trainPar)
+
+    '''
+    # hardcoded for now:
+    inpMD={'hubble': 0.685, 'omega_b': 0.047, 'omega_l': 0.7, 'omega_m': 0.3, 'redshift': 2.9999977549428762, 'cell_size': 0.024414062500000003, 'cell_size_unit': 'Mpc/h', 'max_rho': 62231.1328125, 'max_lnrho': 11.038626670837402, 'cube_shape': [4096, 4096, 4096]}
+    # assembly meta data for FFT
+    fL=['lr','ilr','sr','hr']
+    
+    space_step=inpMD['cell_size']
+    space_bins=trainPar['hr_size']
+    upscale=trainPar['upscale_factor']
+    for kr in fL:
+        inpMD[kr]={'space_bins':space_bins}
+        inpMD[kr]['space_step']=space_step
+        if kr=='lr':
+            inpMD[kr]['space_bins']//=upscale
+            inpMD[kr]['space_step']*=upscale
+    pprint(inpMD)
+    '''
+
+    device   = torch.device("cpu")
+    #device = torch.device("cuda")
+    #assert torch.cuda.is_available()
+    #device=torch.cuda.current_device()
+    
+
+    if 1:
+        # instantiate model.
+        model      = Generator(trainPar['num_inp_chan']).to(device)
+        # Load generator model weights
+        sol="g-%s.pth"%args.genSol
+        model_path=os.path.join(args.modelPath,'checkpoints',sol)
+        print('M:model_path',model_path)
+    
+        state_dict = torch.load(model_path, map_location=device)
+        model = torch.nn.DataParallel(model)
+        model.load_state_dict(state_dict)
+       
+    data_loader = get_data_loader(trainPar, args.domain, verb=1)
+ 
+    startT=time.time()
+    bigD,nSamp=model_infer(model,data_loader,trainPar)
+    predTime=time.time()-startT
+    print('M: infer :   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
+
+    sumRec={}
+    sumRec['domain']=args.domain
+    sumRec['jobId']=trainPar['job_id']
+    sumRec['predTime']=predTime
+    sumRec['numSamples']=nSamp
+    sumRec['modelDesign']=trainMD['train_params']['myId']
+    sumRec['model_path']=model_path
+    sumRec['gen_sol']=sol.replace('.pth','')[2:]
+    for x in  ['sim3d','field2d']:
+        sumRec[x]=trainPar[x]
+    
+    if args.outPath=='same' : args.outPath=args.modelPath
+
+    outF=os.path.join(args.outPath,'pred-%s-%s.h5'%(args.domain,sumRec['gen_sol']))
+    write3_data_hdf5(bigD,outF,metaD=sumRec)
+
+    print('M:done')

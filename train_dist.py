@@ -21,11 +21,13 @@ export SLURM_LOCALID=0
  shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --jobId exp07
 
 
-
 Run on 1 GPUs on 1 node w/ salloc
  salloc -N1 -C gpu  -c 10 --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2  -t4:00:00 --ntasks-per-node=1 
  export MASTER_ADDR=`hostname`
- srun -n1 shifter ./train_dist.py  --design dev0  --facility perlmutter
+ srun -n2 shifter ./train_dist.py  --design dev0  --facility perlmutter
+
+Run on 4 A100 on PM:
+salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1  
 
 
 Quick test:
@@ -33,6 +35,12 @@ srun -n 1 -l ./train_dist.py  -n4
 
 Production job ??
 srun -n 2 -l ./train_dist.py --dataName 2021_05-Yueying-disp_17c --design supRes2 
+
+Display TB
+ssh cori-tb
+cd  ~/prje/tmp_NyxHydro4kB/manual
+ module load pytorch
+ tensorboard  --port 9800 --logdir=exp03
 
 
 '''
@@ -55,7 +63,7 @@ def get_parser():
   parser.add_argument("--design", default='dev0', help='[.hpar.yaml] configuration of model and training')
 
   parser.add_argument("--dataName",default="dm_density_4096",help="[.cpair.h5] name data  file")
-  parser.add_argument("--outPath", default='*/manual', help=' all outputs, also TB, optional "*/" defined in hpar.yaml')
+  parser.add_argument("--outPath", default='*/manual', help=' all outputs+TB+snapshots, optional "*/" uses base-dir+job_id from hpar.yaml')
 
   parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','perlmutter'],help='computing facility where code is executed')  
   parser.add_argument("-j","--jobId", default='exp03', help="optional, aux info to be stored w/ summary")
@@ -82,7 +90,7 @@ if __name__ == '__main__':
     os.environ['MASTER_PORT'] = "8886"
 
     params ={}
-    print('M:facility:',args.facility)
+    #print('M:facility:',args.facility)
     if args.facility=='summit':
       import subprocess
       get_master = "echo $(cat {} | sort | uniq | grep -v batch | grep -v login | head -1)".format(os.environ['LSB_DJOB_HOSTFILE'])
@@ -98,7 +106,7 @@ if __name__ == '__main__':
 
     params['world_size'] = int(os.environ['WORLD_SIZE'])
     params['world_rank'] = 0
-    print('M: ws=', params['world_size'])
+    #print('M: ws=', params['world_size'])
     if params['world_size'] > 1:  # multi-GPU training
       torch.cuda.set_device(params['local_rank'])
       try:
@@ -130,22 +138,27 @@ if __name__ == '__main__':
 
     
     # capture other args values
-    params['h5_name']=params['data_path'][args.facility]+args.dataName+'.h5'
+    params['h5_path']=params['data_path'][args.facility]
+    params['h5_name']=args.dataName+'.h5'
     params['job_id']=args.jobId
     
     if '*/' in args.outPath:
       outPath=args.outPath.replace('*/',params['out_base'][args.facility])
+      params['out_path']=os.path.join(outPath,args.jobId)       
     else:
-      out_path=args.outPath # use as-is
-    params['out_path']=os.path.join(outPath,args.jobId)       
+      params['out_path']=args.outPath # use as-is
+
     params['facility']=args.facility
     
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
-        params['max_samples_per_epoch']=args.numSamp
+        params['max_glob_samples_per_epoch']=args.numSamp
     if args.epochs!=None:
-        params['max_epochs']= args.epochs
-        nut_used1
-    
+        params['train_conf']['epochs']= args.epochs
+
+    # deleted alternatives after choice was made
+    for x in ['Defaults','data_path','out_base']:  
+        params.pop(x)
+        
     trainer = Trainer(params)
     
     trainer.train()

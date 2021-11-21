@@ -172,7 +172,7 @@ class Generator(nn.Module):
         self._initialize_weights()
 
     def forward(self, x: Tensor) -> Tensor:
-        #print('gfx',x.shape)
+        #print('gfx0',x.shape)
         return self._forward_impl(x)
 
     # Support torch.script function.

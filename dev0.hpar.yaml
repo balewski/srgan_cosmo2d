@@ -8,16 +8,16 @@ out_base:
   perlmutter: *CFS_OUT
   
 data_path:
-  #corigpu: /global/cfs/cdirs/m3363/balewski/superRes-packed_h5/
-  corigpu:  *CFS_DATA
-  #perlmutter: /pscratch/sd/b/balewski/superRes-packed_h5/
-  perlmutter: *CFS_DATA
+  corigpu: /global/cscratch1/sd/balewski/superRes-packed_h5
+  #corigpu:  *CFS_DATA
+  perlmutter: /pscratch/sd/b/balewski/superRes-packed_h5/
+  #perlmutter: *CFS_DATA
   summit: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
 
 myId: dev0-manual
-batch_size: 16
+batch_size: 4
 # optional, reduces training samples
-max_samples_per_epoch: 256  # do 1400 or 256
+max_glob_samples_per_epoch: 128  # do 1400 or 256
 hr_size: 512
 upscale_factor: 4
 num_inp_chan: 1  # grey images
@@ -25,7 +25,7 @@ num_inp_chan: 1  # grey images
 
 comment: production config for Super-Resolution
 const_local_batch: true
-#max_epochs: 300
+
 model_conf:
   comment: D+G models taken from  Lornatang Liu Changyu, https://github.com/Lornatang/SRGAN-PyTorch
   print_summary: [0, 0]
@@ -35,10 +35,12 @@ num_cpu_workers: 4
 opt_pytorch: {autotune: true, detect_anomaly: true, zerograd: true}
 save_checkpoint: false
 #tb_log_interval_steps: 5
-text_log_freq_per_epoch: 3
+text_log_interval/epochs: 2
+pred_dump_interval/epochs: 2  # 0=OFF 
+
 train_conf:
-  D_LR: {decay_epochs: 400, gamma: 0.3, init: 3.e-5 }
-  G_LR: {decay_epochs: 300, gamma: 0.4, init: 4.e-5}
+  D_LR: {decay/epochs: 400, gamma: 0.3, init: 3.e-5 }
+  G_LR: {decay/epochs: 300, gamma: 0.4, init: 4.e-5}
   PG_LR: { init: 1.e-4}	
   adv_warmup_epochs: 3
 
@@ -46,11 +48,11 @@ train_conf:
   p_epochs:     5   #  generator training phase.
   epochs:       10   #  adversarial training phase.
 
-  # Perceptual D-loss function weights:
+  # Perceptual G-loss function weights:
   pixel_weight: 0.2
   content_weight: 1.
-  adversarial_weight: 0.02
-  spect_lavr_weight: 0.01
+  advers_weight: 0.02
+  spectr_lavr_weight: 0.01
   
   # legacy variables
   start_p_epoch: 0

@@ -5,7 +5,7 @@ import numpy as np
 import time, os
 import ruamel.yaml  as yaml
 import warnings
-#1warnings.simplefilter('ignore', yaml.error.MantissaNoDotYAML1_1Warning)
+warnings.simplefilter('ignore', yaml.error.MantissaNoDotYAML1_1Warning)
 
 from pprint import pprint
 

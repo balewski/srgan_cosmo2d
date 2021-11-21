@@ -10,7 +10,7 @@ import os
 #............................
 class TBSwriter(object):
     def __init__(self,expDir):
-        print('TBL:cstr, expDir=',expDir)
+        #print('TBS:cstr, expDir=',expDir)
         self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb_logs'))
         
         

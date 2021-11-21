@@ -43,6 +43,7 @@ def write3_data_hdf5(dataD,outF,metaD=None,verb=1):
         h5f.create_dataset(item, data=rec)
         if verb>0:print('h5-write :',item, rec.shape,rec.dtype)
     h5f.close()
+    if verb<1: return
     xx=os.path.getsize(outF)/1048576
     print('closed  hdf5:',outF,' size=%.2f MB, elaT=%.1f sec'%(xx,(time.time() - start)))
     
