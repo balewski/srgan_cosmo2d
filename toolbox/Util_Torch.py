@@ -1,6 +1,24 @@
 import torch
 
 #...!...!..................
+def transf_field2img_torch(field):
+    return torch.log(field)
+
+#...!...!..................
+def transf_img2field_torch(img):
+    return torch.exp(img)
+
+#...!...!..................
+def compute_fft(fieldBatch):  # used in training loss
+    #print('ff', fieldB.shape,flush=True)    
+    #assert fieldB.shape[1]==1 # 1 channel
+    fourier_image = torch.fft.fft2(fieldBatch) #FFTs only the last two dimensions by default.
+    #print('FTCS:inp',fieldBatch.shape,'fft:',fourier_image.shape)
+    fourier_amplitudes2= torch.abs(fourier_image)**2
+    #print('FFT fourier_amplitudes2',fourier_amplitudes2.shape)
+    return torch.log(fourier_amplitudes2+1)
+
+#...!...!..................
 def all_reduce_dict(input_dict, dist,average=True):
     """
     Args:

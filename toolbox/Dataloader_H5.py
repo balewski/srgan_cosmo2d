@@ -36,7 +36,7 @@ import torch
 import logging
 from toolbox.Util_IOfunc import read_yaml
 from toolbox.Util_Cosmo2d import random_crop_WHC, random_flip_rot_WHC, rebin_WHC, prep_fieldMD
-
+from toolbox.Util_Torch import transf_field2img_torch
 
 #...!...!..................
 def get_data_loader(trainMD,domain, verb=1):
@@ -61,8 +61,8 @@ def get_data_loader(trainMD,domain, verb=1):
 #...!...!..................
 def compute_samples_division(numSamp): # build division into train/valid/test/skip
     skipFrac=0.1  # amout of samples left out to assure separation between train/valid/test subset
-    #domFrac={'valid':0.1,'test':0.1,'train':0.7}
-    domFrac={'valid':0.27,'test':0.02,'train':0.7}; skipFrac=0.01  # optimal for 64 GPUs
+    domFrac={'valid':0.15,'test':0.05,'train':0.7} # 32 GPUs
+    #domFrac={'valid':0.27,'test':0.02,'train':0.7}; skipFrac=0.01  # optimal for 64 GPUs
 
     numSkip=int(numSamp * skipFrac/3.)
     assert numSkip>1
@@ -208,9 +208,10 @@ class Dataset_h5_srgan2D(object):
         lr=lr.reshape(1,cf['lr_size'],-1)
         hr=hr.reshape(1,cf['hr_size'],-1)
 
-        # transform to log
-        lrImg=np.log(1+lr)
-        hrImg=np.log(1+hr)
+        # transform field to image
         
-        return torch.from_numpy(np.copy(lrImg)), torch.from_numpy(np.copy(hrImg))
+        lrImg=transf_field2img_torch(torch.from_numpy(np.copy(lr+1 )) )
+        hrImg=transf_field2img_torch(torch.from_numpy(np.copy(hr+1 )) )
+        
+        return lrImg,hrImg
 

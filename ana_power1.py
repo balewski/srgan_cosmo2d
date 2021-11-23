@@ -6,11 +6,13 @@
 import sys,os
 from toolbox.Util_H5io3 import  read3_data_hdf5
 from toolbox.Util_IOfunc import write_yaml
+from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy
+
 import numpy as np
 import argparse,os
 import scipy.stats as stats
 from pprint import pprint
-from ana_sr2d import power_2Dcloud
+
 from  scipy import signal
 from calib_power import median_conf_V
 
@@ -20,13 +22,15 @@ def get_parser():
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2, 3], help="increase output verbosity", default=1, dest='verb')
 
     parser.add_argument( "-X","--noXterm", action='store_true', default=False, help="disable X-term for batch mode")
-    parser.add_argument("-e","--expName",default="exp036",help="experiment predictions")
+    parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual',help='data location w/o expName')
-
+    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kD/',help='data location w/o expName')
+ 
     args = parser.parse_args()
-    #args.expPath=os.path.join('/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual')
+    if args.expName!=None:
+        args.dataPath=os.path.join(args.dataPath,args.expName)
+    
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     if not os.path.exists(args.outPath):
         os.makedirs(args.outPath);   print('M: created',args.outPath)
@@ -66,7 +70,7 @@ if __name__ == "__main__":
     plt=mini_plotter(args)
     
     #.......... input data
-    inpF=os.path.join(args.dataPath,args.expName,'pred-test-%s.h5'%args.genSol)
+    inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     fieldD,expMD=read3_data_hdf5(inpF)
     print('expMD:'); pprint(expMD)
 
@@ -81,12 +85,12 @@ if __name__ == "__main__":
     #nSamp=41
     Y=[]
     for i in range(nSamp):
-        kphys,Phr=power_2Dcloud(HR[i],d=space_step)
-        _,Psr=power_2Dcloud(SR[i],d=space_step)
+        kphys,kidx,Phr,fftA2=powerSpect_2Dfield_numpy(HR[i],d=space_step)
+        _,_,Psr,_=powerSpect_2Dfield_numpy(SR[i],d=space_step)
         
         Pres=(Psr-Phr)/Phr
         Y.append(Pres)
-    kidx=np.arange(kphys.shape[0])+1
+    
     Y=np.array(Y)
     Ymed=median_conf_V(Y)
     Yavr=np.mean(Y,axis=0)

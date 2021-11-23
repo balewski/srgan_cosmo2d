@@ -1,14 +1,16 @@
 #!/bin/bash -l
 # common job script for CoriGpu and Perlmutter using Shifter
-#SBATCH --time=2:50:00  -J srCos2d
+#SBATCH --time=6:00:00  -J srCos2d
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
-#-SBATCH -q regular
+#-SBATCH -q regular  # 6h limitp
+#-SBATCH -q preempt  # 24h limit, preemptible after two hours, never starts
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
 #SBATCH -o out/slurm-%j.out
 #-SBATCH  -x cgpu08 # block sick nodes
 #---PERLMUTTER---
 #SBATCH -N8 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
+#
 #---CORI_GPU---
 #-SBATCH  -N1 --ntasks-per-node=4  --gpus-per-task=1  --cpus-per-task=10
 #-SBATCH -N8 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=10 --exclusive
@@ -16,9 +18,9 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=dev1
-epochsStr=" --epochs 20 "
-epochsStr="  "
+design=dev2
+epochsStr=" --epochs 3100 "
+#epochsStr="  "
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
@@ -51,13 +53,13 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 #wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
-wrkDir0=/global/homes/b/balewski/prje/tmp_NyxHydro4kC/
-wrkDir=${wrkDir0}/${jobId}
+baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kD/
+wrkDir=${baseDir}/${jobId}
 
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 
 date
 
-export CMD=" python -u   train_dist.py    --facility $facility  --outPath ./out --design $design --jobId $jobId  $epochsStr "
+export CMD=" python -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr "
 
 echo CMD=$CMD
 
@@ -69,12 +71,12 @@ cp -rp $codeList  $wrkDir
 cd  $wrkDir
 echo lsfPWD=`pwd`
 
-echo "starting  jobId=$jobId neurInv 2021-08 " `date` " outPath= $outPath"
+echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " outPath= $outPath"
 time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
 
 sleep 3
 
 echo S:done train
-time srun -n1 shifter   ./predict.py --numSamples 500000 --modelPath out/ -X  >& log.predict
+time srun -n1 shifter   ./predict.py --basePath $baseDir --expName $jobId --genSol last  >& log.predict
 echo S:done predict
 date

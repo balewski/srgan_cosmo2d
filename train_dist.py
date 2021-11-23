@@ -11,7 +11,6 @@ Runs on CPU or GPU - see hpar.yaml configuration (aka design)
 tested w/ Pytorch:
 shifter --image=nersc/pytorch:ngc-21.08-v2 bash
 
-
 Runs  1 GPU  interactively on PM:
 ssh pm
 export MASTER_ADDR=`hostname`
@@ -31,7 +30,9 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 
 
 Quick test:
-srun -n 1 -l ./train_dist.py  -n4
+salloc -N1
+ export MASTER_ADDR=`hostname`  
+srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp05
 
 Production job ??
 srun -n 2 -l ./train_dist.py --dataName 2021_05-Yueying-disp_17c --design supRes2 
@@ -63,14 +64,14 @@ def get_parser():
   parser.add_argument("--design", default='dev0', help='[.hpar.yaml] configuration of model and training')
 
   parser.add_argument("--dataName",default="dm_density_4096",help="[.cpair.h5] name data  file")
-  parser.add_argument("--outPath", default='*/manual', help=' all outputs+TB+snapshots, optional "*/" uses base-dir+job_id from hpar.yaml')
+  parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
   parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','perlmutter'],help='computing facility where code is executed')  
-  parser.add_argument("-j","--jobId", default='exp03', help="optional, aux info to be stored w/ summary")
-  parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
+  parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
 
-  parser.add_argument("--epochs",default=None, type=int, help="if defined, replaces max_epochs from hpar")
+  parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
+  parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
 
   args = parser.parse_args()
   return args
@@ -140,14 +141,12 @@ if __name__ == '__main__':
     # capture other args values
     params['h5_path']=params['data_path'][args.facility]
     params['h5_name']=args.dataName+'.h5'
-    params['job_id']=args.jobId
-    
-    if '*/' in args.outPath:
-      outPath=args.outPath.replace('*/',params['out_base'][args.facility])
-      params['out_path']=os.path.join(outPath,args.jobId)       
-    else:
-      params['out_path']=args.outPath # use as-is
+    params['exp_name']=args.expName
 
+    if args.basePath==None:
+      args.basePath=params['base_path'][args.facility]
+
+    params['exp_path']=os.path.join(args.basePath,args.expName)
     params['facility']=args.facility
     
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
@@ -156,7 +155,7 @@ if __name__ == '__main__':
         params['train_conf']['epochs']= args.epochs
 
     # deleted alternatives after choice was made
-    for x in ['Defaults','data_path','out_base']:  
+    for x in ['Defaults','data_path','base_path']:  
         params.pop(x)
         
     trainer = Trainer(params)
@@ -164,7 +163,7 @@ if __name__ == '__main__':
     trainer.train()
                 
     if params['world_rank'] == 0:
-      sumF= params['out_path']+'/sum_train.yaml'
+      sumF= params['exp_path']+'/sum_train.yaml'
       write_yaml(trainer.sumRec, sumF) # to be able to predict while training continus
 
       print("M:done rank=",params['world_rank'])

@@ -10,7 +10,7 @@ import numpy as np
 import argparse,os
 import scipy.stats as stats
 from pprint import pprint
-from ana_sr2d import power_2Dcloud
+
 from  scipy import signal
 
 #...!...!..................

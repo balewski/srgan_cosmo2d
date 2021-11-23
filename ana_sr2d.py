@@ -6,10 +6,13 @@
 '''
 import sys,os
 from toolbox.Util_H5io3 import  read3_data_hdf5
+from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy
 import numpy as np
 import argparse,os
 import scipy.stats as stats
 from pprint import pprint
+#from matplotlib.colors import LogNorm
+
 
 #...!...!..................
 def get_parser():
@@ -18,13 +21,14 @@ def get_parser():
 
     parser.add_argument( "-i","--index", default=3,type=int,help="image index")
     parser.add_argument( "-X","--noXterm", action='store_true', default=False, help="disable X-term for batch mode")
-    parser.add_argument("-e","--expName",default="exp036",help="experiment predictions")
-    parser.add_argument("-s","--genSol",default="last",help="generator solution")
+    parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
+    parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kD/',help='data location w/o expName')
  
     args = parser.parse_args()
-    #args.expPath=os.path.join('/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual',args.expName)
+    if args.expName!=None:
+        args.dataPath=os.path.join(args.dataPath,args.expName)
     
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     if not os.path.exists(args.outPath):
@@ -61,31 +65,6 @@ def max_2d_index(A):
     return jy,jx,A[jy,jx]
 
 #...!...!..................
-def power_2Dcloud(image,d=1):  # d: Sample spacing (inverse of the sampling rate)
-    #print('Pow2D: img',image.shape)
-    npix = image.shape[0]
-    assert npix == image.shape[1]
-    assert npix%2==0  # for computation of kvals
-
-    fourier_image = np.fft.fftn(image)
-    fourier_amplitudes2= np.abs(fourier_image)**2
-
-    kfreq = np.fft.fftfreq(npix) * npix
-    kfreq2D = np.meshgrid(kfreq, kfreq)
-    knrm = np.sqrt(kfreq2D[0]**2 + kfreq2D[1]**2)
-
-    knrm = knrm.flatten()
-    fourier_amplitudes2 = fourier_amplitudes2.flatten()
-
-    kbins = np.arange(0.5, npix//2+1, 1.)
-    #kvals = 0.5 * (kbins[1:] + kbins[:-1])
-
-    Abins, _, _ = stats.binned_statistic(knrm, fourier_amplitudes2,  statistic = "mean", bins = kbins)
-    Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
-
-    kvals=np.fft.fftfreq(npix, d=d)
-    kphys=kvals[:npix//2]
-    return kphys[1:],Abins[1:]  # k,P, skip 0-freq, k  units: 1/d
 
 #...!...!..................
 def post_process_srgan2D_fileds(fieldD,metaD):
@@ -99,8 +78,9 @@ def post_process_srgan2D_fileds(fieldD,metaD):
         print(jy,jx,kr,'max:',zmax)
         metaD[kr]['zmax_xyz']=[jx,jy,zmax]
         img=np.log(data)  # for plotting and density histo
-        kphys,P=power_2Dcloud(data,d=metaD[kr]['space_step'])
+        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=metaD[kr]['space_step'])
         fieldD['ln rho+1'][kr]=img
+        fieldD['ln fftA2+1'][kr]=np.log(fftA2+1)
         metaD[kr]['power']=[kphys,P]
         
 #=================================
@@ -115,7 +95,7 @@ if __name__ == "__main__":
     
     #.......... input data
     #inpF=os.path.join(args.expPath,'pred-test-%s.h5'%args.genSol)
-    inpF=os.path.join(args.dataPath,args.expName,'pred-test-%s.h5'%args.genSol)
+    inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     #1inpF='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp23j/monitor/valid-adv-epoch0.h5'
     bigD,predMD=read3_data_hdf5(inpF)
     print('predMD:');pprint(predMD)
@@ -124,7 +104,7 @@ if __name__ == "__main__":
     # stage data
     fL=['lr','ilr','sr','hr']
     #1fL=['lr','sr','hr']
-    fieldD={'ln rho+1':{}}
+    fieldD={'ln rho+1':{}, 'ln fftA2+1':{}}
     fieldD['rho+1']={ xr:bigD[xr][args.index][0] for xr in fL}  # skip C-index
 
     #tmp
@@ -141,7 +121,7 @@ if __name__ == "__main__":
 
     # - - - - - Plotting - - - - - 
     plDD={}
-    plDD['hcol']={'lr':'g','ilr':'orange','sr':'C3','hr':'k'}
+    plDD['hcol']={'lr':'blue','ilr':'orange','sr':'C3','hr':'k'}
     png=1
     ext='img%d'%args.index
     
@@ -155,7 +135,7 @@ if __name__ == "__main__":
             img=fieldD['ln rho+1'][kr]
             ax.imshow(img,origin='lower')
             ax.set_aspect(1.)           
-            tit='%s idx=%d  size=%s'%(kr,args.index,str(img.shape))
+            tit='ln(rho+1) %s idx=%d  size=%s'%(kr,args.index,str(img.shape))
             ax.set(title=tit)
                  
             if kr!='lr':
@@ -163,6 +143,21 @@ if __name__ == "__main__":
                 # compute range of vertical line
                 y1=jy_hr/img.shape[0]            
                 ax.axvline(jx_hr, max(0,y1-0.1), min(1,y1+0.1),linewidth=1.,color='y')
+        
+        save_fig(figId,ext=ext,png=png)
+
+    if 1: # - - - -  plot fft-images - - - - 
+        ncol,nrow=3,1; xyIn=(15,5); figId=8
+        plt.figure(figId,facecolor='white', figsize=xyIn)
+        for i,kr in  enumerate(fL[1:]):
+            ax=plt.subplot(nrow,ncol,1+i)
+            img=fieldD['ln fftA2+1'][kr]
+            zd=np.min(img);  zu=np.max(img); zm=np.mean(img); 
+            print('fftImg',kr,zd,zm,zu)
+            ax.imshow(img,origin='lower', cmap ='Paired')
+            ax.set_aspect(1.)           
+            tit='ln(abs(FFT)+1) %s idx=%d  size=%s'%(kr,args.index,str(img.shape))
+            ax.set(title=tit)
         
         save_fig(figId,ext=ext,png=png)
 

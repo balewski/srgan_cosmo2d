@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+import scipy.stats as stats
 
 #...!...!..................
 def prep_fieldMD(inpMD,trainPar):
@@ -19,12 +20,40 @@ def prep_fieldMD(inpMD,trainPar):
     outMD={'sim3d':inpMD,'field2d':fieldMD}
     #print('BB',outMD)
     return outMD
- 
 
 #...!...!..................
-def interpolate_2Dimage(A,nZoom=2):    
-    # it will work with mutli-channel array, format : W,H,C
+def powerSpect_2Dfield_numpy(field,d=1):  # d: Sample spacing (inverse of the sampling rate)
+    #print('Pow2D: field',field.shape)
+    npix = field.shape[0]
+    assert npix == field.shape[1]
+    assert npix%2==0  # for computation of kvals
 
+    fourier_image = np.fft.fftn(field)
+    fourier_amplitudes2= np.abs(fourier_image)**2
+
+    kfreq = np.fft.fftfreq(npix) * npix
+    kfreq2D = np.meshgrid(kfreq, kfreq)
+    knrm = np.sqrt(kfreq2D[0]**2 + kfreq2D[1]**2)
+
+    knrm = knrm.flatten()
+    amplitudes2 = fourier_amplitudes2.flatten()
+
+    kbins = np.arange(0.5, npix//2+1, 1.)
+    #kvals = 0.5 * (kbins[1:] + kbins[:-1])
+
+    Abins, _, _ = stats.binned_statistic(knrm, amplitudes2,  statistic = "mean", bins = kbins)
+    Abins *= np.pi * (kbins[1:]**2 - kbins[:-1]**2)
+
+    kvals=np.fft.fftfreq(npix, d=d)
+    kphys=kvals[:npix//2]
+    absFftA=fourier_amplitudes2[:npix//2,:npix//2]  # only lower-left quadrant 
+    #print('dd',kphys.shape,kbins.shape)
+    return kphys[1:],kbins[1:-1],Abins[1:], absFftA # k,P, skip 0-freq, k  units: 1/d
+
+
+#...!...!..................
+def interpolate_2Dfield(A,nZoom=2):    
+    # it will work with mutli-channel array, format : W,H,C
     sizeX=A.shape[0]
     sizeY=A.shape[1]
     binX=np.linspace(0,sizeX-1,sizeX, endpoint=True)

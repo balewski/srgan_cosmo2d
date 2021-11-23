@@ -1,0 +1,45 @@
+Output dir structure
+
+***Every experiment,prediction writes all outputs into:
+  $expPath/$expName/
+   sub-dirs:  checkpoints/ snapshots/ tb_logs/
+   files: sum_train.yaml pred-test-best521.h5
+
+***Configuring train interactively***
+train_dist.py --basePath [none/absol] --expName [exp12/jobId]
+action:  expPath=basePath/expName
+         create if not existing:  checkpoints/ snapshots/
+
+***Configuring train Slumr job***
+shell action:
+    mapping: expName=$jobId , basePath=PickMe
+    expPath=$basePath/$expName
+    create $basePath if not existing
+    copy code to $expPath
+    cd $expPath
+    train_dist.py --basePath $basePath --expName $jobId
+     (the rest should work)
+
+***Configuring predict ***
+./predict.py --basePath $basePath --expName $expName --genSol $solName --outPath same
+action:
+     expPath=$basePath/$expName
+     modelPath=$expPath/checkpoints/genSol [+.pth]
+     outPath=expPath if 'same'
+     read sum_train.yaml
+     device=CPU
+     create G-model from .py
+     prime model state from $modelPath
+     prime dataloader from trainMD from .yaml
+     predict (nSamp)
+     write h5 to $outPath
+
+***Configuring analysis of predictions ***
+./ana_sr2d.py  --dataPath [expPath]  --genSol $solNamee  --outPath out/
+Alternative:
+./ana_sr2d.py --expName exp04 --genSol last  
+    actoion:  dataPath=dataPath+expName
+
+./ana_power1.py --expName exp04 --genSol last  
+
+

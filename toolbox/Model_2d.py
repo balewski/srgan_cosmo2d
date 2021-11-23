@@ -27,6 +27,9 @@ __all__ = [
     "ContentLoss"
 ]
 
+#............................
+#............................
+#............................
 
 class ResidualConvBlock(nn.Module):
     """Implements residual conv function.
@@ -53,6 +56,9 @@ class ResidualConvBlock(nn.Module):
 
         return out
 
+#............................
+#............................
+#............................
 
 class Discriminator(nn.Module):
     def __init__(self,num_inp_chan, verb=0) -> None:
@@ -124,6 +130,9 @@ class Discriminator(nn.Module):
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}
 
+#............................
+#............................
+#............................
 
 class Generator(nn.Module):
     def __init__(self,num_inp_chan, verb=0) -> None:
@@ -204,6 +213,9 @@ class Generator(nn.Module):
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}
 
+#............................
+#............................
+#............................
 
 class ContentLoss(nn.Module):
     """ Constructs a content loss function based on the VGG19 network.
