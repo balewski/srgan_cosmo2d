@@ -12,8 +12,14 @@ class TBSwriter(object):
     def __init__(self,expDir):
         #print('TBS:cstr, expDir=',expDir)
         self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb_logs'))
-        
-        
+        self.tbsummary_step=0
+
+#...!...!..................
+    def add_tbsummary_record(self,txt):
+        self.TBSwriter.add_text('summary',txt , global_step=self.tbsummary_step)
+        self.tbsummary_step+=1
+
+# - - - - -  NOT  USED  YET - - - - - -         
 #...!...!..................
     def TBlog_epoch_train(self,epoch_loss,inpCube,outCube,tgtCube,timeD,speedD):
         

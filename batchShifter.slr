@@ -65,13 +65,12 @@ echo CMD=$CMD
 
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
-outPath=$wrkDir/out
-mkdir -p $outPath
+mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
-echo lsfPWD=`pwd`
+echo PWD=`pwd`
 
-echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " outPath= $outPath"
+echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
 time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
 
 sleep 3

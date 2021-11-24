@@ -2,20 +2,25 @@ Defaults:
   # note, CFS-based location will run slower vs. SCRATCH
   cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kD/
   cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
+  summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+
 
 base_path: 
   corigpu:  /global/cscratch1/sd/balewski/tmp_digitalMind/superRes-cgpu/august/
   perlmutter: *CFS_OUT
-  
+  summitlogin: *AST153_WORLD
+
 data_path:
   corigpu: /global/cscratch1/sd/balewski/superRes-packed_h5
-  #corigpu:  *CFS_DATA
+  #corigpu:  *CFS_DATA  d/b/balewski/superRes-packed_h5/
   perlmutter: /pscratch/sd/b/balewski/superRes-packed_h5/
-  #perlmutter: *CFS_DATA
-  summit: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  #perlmutter: *CFS_DATA  # slower
+  summit: *AST153_PROJ
+  summitlogin: *AST153_PROJ
 
 myId: dev0-manual
-batch_size: 4
+batch_size: 8
 # optional, reduces training samples
 max_glob_samples_per_epoch: 128  # do 1400 or 256
 hr_size: 512

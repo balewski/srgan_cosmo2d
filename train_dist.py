@@ -17,7 +17,7 @@ export MASTER_ADDR=`hostname`
 export SLURM_NTASKS=1
 export SLURM_PROCID=0
 export SLURM_LOCALID=0
- shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --jobId exp07
+ shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
 
 
 Run on 1 GPUs on 1 node w/ salloc
@@ -34,14 +34,21 @@ salloc -N1
  export MASTER_ADDR=`hostname`  
 srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp05
 
+On Summit: salloc, as corigpu, use facility=summitlogin
+
 Production job ??
 srun -n 2 -l ./train_dist.py --dataName 2021_05-Yueying-disp_17c --design supRes2 
 
 Display TB
 ssh cori-tb
-cd  ~/prje/tmp_NyxHydro4kB/manual
+cd  ~/prje/tmp_NyxHydro4kD
  module load pytorch
  tensorboard  --port 9800 --logdir=exp03
+
+ssh summit-tb
+cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+module load open-ce/1.1.3-py38-0
+ tensorboard  --port 9700 --logdir=1645832
 
 
 '''
@@ -66,12 +73,13 @@ def get_parser():
   parser.add_argument("--dataName",default="dm_density_4096",help="[.cpair.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','perlmutter'],help='computing facility where code is executed')  
+  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
 
   parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
   parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
+  parser.add_argument("--LRfactor", type=float, default=None, help="(optional) multiplier for initLR for G and D")
 
   args = parser.parse_args()
   return args
@@ -153,7 +161,11 @@ if __name__ == '__main__':
         params['max_glob_samples_per_epoch']=args.numSamp
     if args.epochs!=None:
         params['train_conf']['epochs']= args.epochs
+    if args.LRfactor!=None:
+        for  x in ["D_LR","G_LR"]: 
+          params['train_conf'][x]['init']*= args.LRfactor
 
+        
     # deleted alternatives after choice was made
     for x in ['Defaults','data_path','base_path']:  
         params.pop(x)

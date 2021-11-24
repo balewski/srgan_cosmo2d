@@ -98,18 +98,23 @@ class Discriminator(nn.Module):
             nn.Dropout(p=0.2),
             #nn.Linear(512 * 6 * 6, 1024),  # image_size=96 --> (18432,1024)
             #nn.Linear(73728, 1024),  # image_size=192
-            #nn.Linear(320000, 1024),  # image_size=400 , 8 upsampl
-            #nn.Linear(739328 , 1024),  # image_size=600 , 8 upsampl
-            nn.Linear(524288 , 1024),  # image_size=500 , 4 upsampl
-            nn.LeakyReLU(0.2, True),
+            #nn.Linear(524288 , 1024),  # image_size=500 , 4 upsampl, A100
             #nn.Linear(1024, 1),  # simple classifier
-            nn.Dropout(p=0.2),
-            nn.Linear(1024, 1024),
+            nn.Linear(524288 , 512),  # image_size=500 , 4 upsampl, V100
             nn.LeakyReLU(0.2, True),
             nn.Dropout(p=0.2),
-            nn.Linear(1024, 512),
+            # A100            
+            #nn.Linear(1024, 1024),
+            #nn.LeakyReLU(0.2, True),
+            #nn.Dropout(p=0.2),
+            #nn.Linear(1024, 512),
+            #nn.LeakyReLU(0.2, True),
+            #nn.Dropout(p=0.2),  # end-A100
+            # V100
+            nn.Linear(512, 512),
             nn.LeakyReLU(0.2, True),
             nn.Dropout(p=0.2),
+            # V100-end
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2, True),
             nn.Linear(256, 1),

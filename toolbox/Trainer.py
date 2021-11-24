@@ -69,6 +69,7 @@ class Trainer(TBSwriter):
           
           logging.info('T:valid-data: %d steps'%(len(self.valid_loader)))        
           logging.info('T:meta-data from h5: %s'%pformat(inpMD))
+          self.add_tbsummary_record(pformat(inpMD))
           
         if params['world_rank']==0 and 0:  # for now needed for cub-shapes
             someLoader=self.train_loader
@@ -159,6 +160,8 @@ class Trainer(TBSwriter):
             logging.info('T: D+G models created')#, seen inp_shape: %s',str(seen_inp_shape))
             logging.info(self.G_model.summary())
             logging.info(self.D_model.summary())
+            self.add_tbsummary_record(str(self.G_model.summary()))
+            self.add_tbsummary_record(str(self.D_model.summary()))
 
             [Gpr,Dpr]=params['model_conf']['print_summary']
             if Dpr+Gpr>0: from torchsummary import summary  # not visible if loaded earlier
@@ -209,7 +212,7 @@ class Trainer(TBSwriter):
         
         if self.verb:
             txt='exp=%s  pretrain start, epochs [%d,%d], numGpu=%d, date=%s' %(self.params['exp_name'],start_p_epoch, p_epochs,self.params['world_size'],self.sumRec['train_date'])
-            self.TBSwriter.add_text('summary',txt , global_step=0)
+            self.add_tbsummary_record(txt)
             logging.info(txt)
             
                                          
@@ -250,7 +253,8 @@ class Trainer(TBSwriter):
        
         if self.verb:
             txt='adv_train start, epochs [%d,%d],  numGpu=%d, elapsedTime=%.1f min' %(start_epoch, epochs,self.params['world_size'],(time.time()-T0)/60.)
-            self.TBSwriter.add_text('summary',txt , global_step=1)
+            #self.TBSwriter.add_text('summary',txt , global_step=1)
+            self.add_tbsummary_record(txt)
             logging.info(txt)
             
 
@@ -345,7 +349,8 @@ class Trainer(TBSwriter):
 
         if self.verb:
             txt='exp=%s end, best PSNR=%.2f in epoch %d, last epoch %d, numGpu=%d, elapsedTime=%.1f min, globSamp/sec=%.1f' %(self.params['exp_name'],best_psnr_value,best_epoch, epoch,self.params['world_size'],(time.time()-T0)/60.,rec3['train'])
-            self.TBSwriter.add_text('summary',txt , global_step=2)
+            #self.TBSwriter.add_text('summary',txt , global_step=2)
+            self.add_tbsummary_record(txt)
             logging.info(txt)
 
             return
