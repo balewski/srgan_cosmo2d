@@ -49,6 +49,8 @@ def get_data_loader(trainMD,domain, verb=1):
   for x in ['lr_size','sim3d','field2d']:
       trainMD[x]=conf[x]
 
+  trainMD['hr_img_shape']=[conf['num_inp_chan'],conf['hr_size'],conf['hr_size']]
+  trainMD['lr_img_shape']=[conf['num_inp_chan'],conf['lr_size'],conf['lr_size']]
   dataloader = DataLoader(dataset,
                           batch_size=conf['local_batch_size'],
                           num_workers=conf['num_cpu_workers'],

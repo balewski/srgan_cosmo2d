@@ -69,6 +69,7 @@ class Trainer(TBSwriter):
           
           logging.info('T:valid-data: %d steps'%(len(self.valid_loader)))        
           logging.info('T:meta-data from h5: %s'%pformat(inpMD))
+          self.add_tbsummary_record(pformat(inpMD))
           
         if params['world_rank']==0 and 0:  # for now needed for cub-shapes
             someLoader=self.train_loader
@@ -104,20 +105,20 @@ class Trainer(TBSwriter):
             logging.info('T:assemble G+D models')
 
         self.G_model = Generator(params['num_inp_chan'],verb=self.verb)
-        self.D_model = Discriminator(params['num_inp_chan'],verb=self.verb)
+        self.D_model = Discriminator(params['num_inp_chan'],params['model_conf']['D'],verb=self.verb)
 
         # add models to TB - takes 1 min
         if self.isRank0:
-            gr2tb=params['model_conf']['tb_add_graph']
-            dataD=next(iter(self.train_loader))            
+            gr2tb=params['model_conf']['tb_model_graph']
+            (lrB, hrB)=next(iter(self.train_loader))            
             if 'G'==gr2tb:
                 t1=time.time()
-                self.TBSwriter.add_graph(self.G_model,dataD['input'].to('cpu'))
+                self.TBSwriter.add_graph(self.G_model,lrB.to('cpu'))
                 t2=time.time()
                 print('TB G-graph done elaT=%.1f'%(t2-t1))
             if 'D'==gr2tb:
                 t1=time.time()
-                self.TBSwriter.add_graph(self.D_model,dataD['target'].to('cpu'))
+                self.TBSwriter.add_graph(self.D_model,hrB.to('cpu'))
                 t2=time.time()
                 print('TB D-graph done elaT=%.1f'%(t2-t1),gr2tb)
 
@@ -157,16 +158,22 @@ class Trainer(TBSwriter):
         
         if self.verb:
             logging.info('T: D+G models created')#, seen inp_shape: %s',str(seen_inp_shape))
-            logging.info(self.G_model.summary())
-            logging.info(self.D_model.summary())
+            logging.info(self.G_model.short_summary())
+            logging.info(self.D_model.short_summary())
+            self.add_tbsummary_record(str(self.G_model.short_summary()))
+            self.add_tbsummary_record(str(self.D_model.short_summary()))
 
-            [Gpr,Dpr]=params['model_conf']['print_summary']
+
+            Gpr=params['model_conf']['G']['print_summary']
+            Dpr=params['model_conf']['D']['print_summary']
+        
+            
             if Dpr+Gpr>0: from torchsummary import summary  # not visible if loaded earlier
 
             if Gpr & 1:  logging.info('T:generator layers %s'%pformat(self.G_model))
-            if Gpr & 2:  logging.info('T:generator summary %s'%pformat(summary(self.G_model,tuple(seen_inp_shape))))
+            if Gpr & 2:  logging.info('T:generator summary %s'%pformat(summary(self.G_model,tuple(params['lr_img_shape']))))
             if Dpr & 1:  logging.info('T:discriminator layers %s'%pformat(self.D_model))
-            if Dpr & 2:  logging.info('T:discriminator summary %s'%pformat(summary(self.D_model,tuple(tgt_shape))))
+            if Dpr & 2:  logging.info('T:discriminator summary %s'%pformat(summary(self.D_model,tuple(params['hr_img_shape']))))
             
         if params['world_size']>1:
             self.G_model = DistributedDataParallel(self.G_model,
@@ -202,21 +209,21 @@ class Trainer(TBSwriter):
         T0 = time.time()
         trCf=self.params['train_conf']
          
-        start_p_epoch=trCf['start_p_epoch']
-        p_epochs=trCf['p_epochs']
+        start_pre_epoch=trCf['start_pre_epoch']
+        pre_epochs=trCf['pre_epochs']
         start_epoch=trCf['start_epoch']
         epochs=trCf['epochs']
         
         if self.verb:
-            txt='exp=%s  pretrain start, epochs [%d,%d], numGpu=%d, date=%s' %(self.params['exp_name'],start_p_epoch, p_epochs,self.params['world_size'],self.sumRec['train_date'])
-            self.TBSwriter.add_text('summary',txt , global_step=0)
+            txt='exp=%s  pretrain start, epochs [%d,%d], numGpu=%d, date=%s' %(self.params['exp_name'],start_pre_epoch, pre_epochs,self.params['world_size'],self.sumRec['train_date'])
+            self.add_tbsummary_record(txt)
             logging.info(txt)
             
                                          
         # Initialize the evaluation indicators for the training stage of the generator model.
         best_psnr_value = 0.0
         # Train the generative network stage.
-        for epoch in range(start_p_epoch, p_epochs):
+        for epoch in range(start_pre_epoch, pre_epochs):
             Ta=time.time()
             # Train each epoch for generator network.
             self.pretrain_generator( epoch)
@@ -232,7 +239,7 @@ class Trainer(TBSwriter):
                 # Save the weight of the generator network under epoch. If the performance of the generator network under epoch is best, save a file ending with `-best.pth` in the `results` directory.
                 exp_dir2=self.params['checkpoint_path']
                 if epoch% self.params['checkpoint_interval/epochs']==0:
-                    torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, f"p_epoch{epoch + 1}.pth"))
+                    torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, f"pre_epoch{epoch + 1}.pth"))
                 if is_best:
                     torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "p-best.pth"))
 
@@ -250,7 +257,8 @@ class Trainer(TBSwriter):
        
         if self.verb:
             txt='adv_train start, epochs [%d,%d],  numGpu=%d, elapsedTime=%.1f min' %(start_epoch, epochs,self.params['world_size'],(time.time()-T0)/60.)
-            self.TBSwriter.add_text('summary',txt , global_step=1)
+            #self.TBSwriter.add_text('summary',txt , global_step=1)
+            self.add_tbsummary_record(txt)
             logging.info(txt)
             
 
@@ -345,7 +353,8 @@ class Trainer(TBSwriter):
 
         if self.verb:
             txt='exp=%s end, best PSNR=%.2f in epoch %d, last epoch %d, numGpu=%d, elapsedTime=%.1f min, globSamp/sec=%.1f' %(self.params['exp_name'],best_psnr_value,best_epoch, epoch,self.params['world_size'],(time.time()-T0)/60.,rec3['train'])
-            self.TBSwriter.add_text('summary',txt , global_step=2)
+            #self.TBSwriter.add_text('summary',txt , global_step=2)
+            self.add_tbsummary_record(txt)
             logging.info(txt)
 
             return

@@ -1,23 +1,39 @@
 Defaults:
   # note, CFS-based location will run slower vs. SCRATCH
-  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kC/
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kE/
   cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
+  summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
 
-base_path: 
-  corigpu:  /global/cscratch1/sd/balewski/tmp_digitalMind/superRes-cgpu/august/
-  perlmutter: *CFS_OUT
-  
-data_path:
+
+facility_conf:
+  perlmutter:
+    base_path:  *CFS_OUT
+    data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
+    G_LR: {decay/epochs: 1000, gamma: 0.4, init: 6.e-5}	
+    D_LR: {decay/epochs: 1000, gamma: 0.4, init: 4.e-5 }
+    batch_size: 16   #for A100
+    D_num_fc_layer: 5 # is large for A100
+    
+  summit:
+    D_num_fc_layer: 3 # is small for V100	
+    batch_size: 6
+
+Xbase_path:   # obsolete
+  corigpu:  /global/cscratch1/sd/balewski/tmp_digitalMind/superRes-cgpu/august/  
+  summitlogin: *AST153_WORLD
+    
+Xdata_path:   # obsolete
   #corigpu: /global/cfs/cdirs/m3363/balewski/superRes-packed_h5/
   corigpu:  *CFS_DATA
-  perlmutter: /pscratch/sd/b/balewski/superRes-packed_h5/
   #perlmutter: *CFS_DATA
-  summit: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  summit: *AST153_PROJ
+  summitlogin: *AST153_PROJ
 
-myId: dev2-manual
-batch_size: 16
+myId: dev4-dual
+
 # optional, reduces training samples
-#max_glob_samples_per_epoch: 1400  # do 1400 or 256
+#max_glob_samples_per_epoch: 256  # do 1400 or 256
 hr_size: 512
 upscale_factor: 4
 num_inp_chan: 1  # grey images
@@ -28,8 +44,14 @@ const_local_batch: true
 
 model_conf:
   comment: D+G models taken from  Lornatang Liu Changyu, https://github.com/Lornatang/SRGAN-PyTorch
-  print_summary: [0, 0]
-  tb_add_graph: null
+  tb_model_graph: null # D,G, or null
+  D:
+    fc_layers: null
+    print_summary: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
+  G:
+    print_summary: 0  # see D for explanation
+    is_empty: null
+
 
 num_cpu_workers: 4
 opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
@@ -39,14 +61,12 @@ checkpoint_interval/epochs: 50
 pred_dump_interval/epochs: 100  # 0=OFF 
 
 train_conf:
-  D_LR: {decay/epochs: 1300, gamma: 0.4, init: 8.e-5 }
-  G_LR: {decay/epochs: 1100, gamma: 0.4, init: 1.e-4}
-  adv_warmup_epochs: 100
+  adv_warmup_epochs: 1
   PG_LR: { init: 1.e-4}	
 
   # Train epochs.
-  p_epochs:     50   #  generator training phase.
-  epochs:       1000   #  adversarial training phase.
+  pre_epochs:   5   #  generator training phase.
+  epochs:       10   #  adversarial training phase.
 
   # Perceptual G-loss function weights:
   pixel_weight: 0.8
@@ -55,7 +75,7 @@ train_conf:
   fft_weight: 0.04
   
   # legacy variables
-  start_p_epoch: 0
+  start_pre_epoch: 0
   start_epoch:            0    # ???The number of initial iterations of the adversarial training phase. When set to 0, it means incremental training.
   resume:        False  # Set to `True` to continue training from checkpoint
   resume_p_weight:     ""    # Restore the weight of the generator model during generator training.

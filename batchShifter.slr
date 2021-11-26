@@ -1,6 +1,6 @@
 #!/bin/bash -l
-# common job script for CoriGpu and Perlmutter using Shifter
-#SBATCH --time=6:00:00  -J srCos2d
+#-SBATCH --time=6:00:00  -J srCos2d
+#SBATCH --time=20:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
 #-SBATCH -q regular  # 6h limitp
@@ -9,15 +9,15 @@
 #SBATCH -o out/slurm-%j.out
 #-SBATCH  -x cgpu08 # block sick nodes
 #---PERLMUTTER---
-#SBATCH -N8 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
+#SBATCH -N1 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
 
 # - - - E N D    O F    SLURM    C O M M A N D S
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=dev2
-epochsStr=" --epochs 3600 "
-#epochsStr="  "
+design=dev4
+#epochsStr=" --epochs 3600 "
+epochsStr="  "
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
@@ -29,7 +29,7 @@ echo S:node-list $nodeList
 
 # grab some variables from environment - if defined
 #[[ -z "${NEUINV_INIT_LR}" ]] && initLRstr="  " || initLRstr=" --initLR ${NEUINV_INIT_LR} "
-[[ -z "${SRCOS2D_JOBID}" ]] && jobId=j$SLURM_JOBID || jobId="${design}_${SRCOS2D_JOBID}"
+[[ -z "${SRCOS2D_JOBID}" ]] && jobId=$SLURM_JOBID || jobId="${design}_${SRCOS2D_JOBID}"
 env |grep SRCOS2D
 
 if [[  $NERSC_HOST == cori ]]   ; then
@@ -50,7 +50,7 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 #wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kD/
+baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kE/
 wrkDir=${baseDir}/${jobId}
 
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 
@@ -62,13 +62,12 @@ echo CMD=$CMD
 
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
-outPath=$wrkDir/out
-mkdir -p $outPath
+mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
-echo lsfPWD=`pwd`
+echo PWD=`pwd`
 
-echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " outPath= $outPath"
+echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
 time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
 
 sleep 3

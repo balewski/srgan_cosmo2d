@@ -61,7 +61,7 @@ class ResidualConvBlock(nn.Module):
 #............................
 
 class Discriminator(nn.Module):
-    def __init__(self,num_inp_chan, verb=0) -> None:
+    def __init__(self,num_inp_chan,conf, verb=0) -> None:
         super(Discriminator, self).__init__()
         self.features = nn.Sequential(
             # input size. (3) x 96 x 96
@@ -94,28 +94,36 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, True)
         )
 
-        self.classifier = nn.Sequential(
-            nn.Dropout(p=0.2),
-            #nn.Linear(512 * 6 * 6, 1024),  # image_size=96 --> (18432,1024)
-            #nn.Linear(73728, 1024),  # image_size=192
-            #nn.Linear(320000, 1024),  # image_size=400 , 8 upsampl
-            #nn.Linear(739328 , 1024),  # image_size=600 , 8 upsampl
-            nn.Linear(524288 , 1024),  # image_size=500 , 4 upsampl
-            nn.LeakyReLU(0.2, True),
-            #nn.Linear(1024, 1),  # simple classifier
-            nn.Dropout(p=0.2),
-            nn.Linear(1024, 1024),
-            nn.LeakyReLU(0.2, True),
-            nn.Dropout(p=0.2),
-            nn.Linear(1024, 512),
-            nn.LeakyReLU(0.2, True),
-            nn.Dropout(p=0.2),
-            nn.Linear(512, 256),
-            nn.LeakyReLU(0.2, True),
-            nn.Linear(256, 1),
-            nn.Sigmoid()
-        )
-
+        if conf['fc_layers']==3:  # for V100
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(524288 , 512),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        elif conf['fc_layers']==5: # for A100
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(524288 , 1024),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(1024, 1024),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(1024, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        else:
+            assert 1==2, "bad D FC layer count:%s"%conf['fc_layers']
+        
+      
     def forward(self, x: Tensor) -> Tensor:
         #print('DF:a',x.shape,x.dtype)
         out = self.features(x)
@@ -125,7 +133,7 @@ class Discriminator(nn.Module):
         
         return out
 #...!...!..................
-    def summary(self):
+    def short_summary(self):
         numLayer=sum(1 for p in self.parameters())
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}
@@ -208,7 +216,7 @@ class Generator(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 m.weight.data *= 0.1
 #...!...!..................
-    def summary(self):
+    def short_summary(self):
         numLayer=sum(1 for p in self.parameters())
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}

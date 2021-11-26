@@ -17,16 +17,14 @@ export MASTER_ADDR=`hostname`
 export SLURM_NTASKS=1
 export SLURM_PROCID=0
 export SLURM_LOCALID=0
- shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --jobId exp07
+ shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
 
-
-Run on 1 GPUs on 1 node w/ salloc
- salloc -N1 -C gpu  -c 10 --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2  -t4:00:00 --ntasks-per-node=1 
- export MASTER_ADDR=`hostname`
- srun -n2 shifter ./train_dist.py  --design dev0  --facility perlmutter
 
 Run on 4 A100 on PM:
 salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1  
+
+ export MASTER_ADDR=`hostname`
+ srun -n1 shifter ./train_dist.py  --design dev4  --facility perlmutter
 
 
 Quick test:
@@ -34,14 +32,21 @@ salloc -N1
  export MASTER_ADDR=`hostname`  
 srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp05
 
+On Summit: salloc, as corigpu, use facility=summitlogin
+
 Production job ??
 srun -n 2 -l ./train_dist.py --dataName 2021_05-Yueying-disp_17c --design supRes2 
 
 Display TB
 ssh cori-tb
-cd  ~/prje/tmp_NyxHydro4kB/manual
+cd  ~/prje/tmp_NyxHydro4kD
  module load pytorch
  tensorboard  --port 9800 --logdir=exp03
+
+ssh summit-tb
+cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+module load open-ce/1.1.3-py38-0
+ tensorboard  --port 9700 --logdir=1645832
 
 
 '''
@@ -66,12 +71,13 @@ def get_parser():
   parser.add_argument("--dataName",default="dm_density_4096",help="[.cpair.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','perlmutter'],help='computing facility where code is executed')  
+  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
 
   parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
   parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
+  parser.add_argument("--LRfactor", type=float, default=None, help="(optional) multiplier for initLR for G and D")
 
   args = parser.parse_args()
   return args
@@ -124,12 +130,21 @@ if __name__ == '__main__':
       for arg in vars(args):  logging.info('M:arg %s:%s'%(arg, str(getattr(args, arg))))
 
     blob=read_yaml( args.design+'.hpar.yaml',verb=params['verb'], logger=True)
+    facCf=blob.pop('facility_conf')[args.facility]
+    blob.pop('Defaults')
     params.update(blob)
     params['design']=args.design
     
     #print('M:params');pprint(params)#tmp
+    #... propagate facility dependent config
+    params['facility']=args.facility    
+    for x in ["D_LR","G_LR"]: 
+        params['train_conf'][x]=facCf[x]
+
+    params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
+
     # refine BS for multi-gpu configuration
-    tmp_batch_size=params.pop('batch_size')
+    tmp_batch_size=facCf['batch_size']
     if params['const_local_batch']: # faster but LR changes w/ num GPUs
       params['local_batch_size'] =tmp_batch_size 
       params['global_batch_size'] =tmp_batch_size*params['world_size']
@@ -139,25 +154,24 @@ if __name__ == '__main__':
 
     
     # capture other args values
-    params['h5_path']=params['data_path'][args.facility]
+    params['h5_path']=facCf['data_path']
     params['h5_name']=args.dataName+'.h5'
     params['exp_name']=args.expName
 
     if args.basePath==None:
-      args.basePath=params['base_path'][args.facility]
+      args.basePath=facCf['base_path']
 
     params['exp_path']=os.path.join(args.basePath,args.expName)
-    params['facility']=args.facility
-    
+
+    #.... update selected params based on runtime config
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
         params['max_glob_samples_per_epoch']=args.numSamp
     if args.epochs!=None:
         params['train_conf']['epochs']= args.epochs
-
-    # deleted alternatives after choice was made
-    for x in ['Defaults','data_path','base_path']:  
-        params.pop(x)
-        
+    if args.LRfactor!=None:
+        for  x in ["D_LR","G_LR"]: 
+          params['train_conf'][x]['init']*= args.LRfactor
+       
     trainer = Trainer(params)
     
     trainer.train()
