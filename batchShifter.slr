@@ -10,16 +10,13 @@
 #-SBATCH  -x cgpu08 # block sick nodes
 #---PERLMUTTER---
 #SBATCH -N8 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#
-#---CORI_GPU---
-#-SBATCH  -N1 --ntasks-per-node=4  --gpus-per-task=1  --cpus-per-task=10
-#-SBATCH -N8 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=10 --exclusive
+
 # - - - E N D    O F    SLURM    C O M M A N D S
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=dev2
-epochsStr=" --epochs 3100 "
+epochsStr=" --epochs 3600 "
 #epochsStr="  "
 
 N=${SLURM_NNODES}
