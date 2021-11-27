@@ -1,8 +1,8 @@
 #!/bin/bash
 #BSUB -P AST153  # Peter
-#BSUB -W 00:30
-#-BSUB -W 2:00
-#BSUB -nnodes 24
+#-BSUB -W 00:30
+#BSUB -W 2:00
+#BSUB -nnodes 14
 #BSUB -J lsf-sr
 #BSUB -alloc_flags "nvme smt4"
 # - - - - - End LSF directives and begin shell commands
@@ -10,12 +10,12 @@
 #1arrIdx=${LSB_JOBINDEX}
 #1jobId=${LSB_JOBID}_${LSB_JOBINDEX}
 
-nprocspn=6  # 6 is correct
+nprocspn=6  # 6 is correct, 1 works as well for testing
 
-design=dev2
-epochsStr=" --epochs 31 "
-#epochsStr="  "
-LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
+design=dev4
+
+epochsStr="  "  ; epochsStr=" --epochs 1400 "
+#LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 #determine number of nodes and total procs
 nnodes=$(cat ${LSB_DJOB_HOSTFILE} | sort | uniq | grep -v login | grep -v batch | wc -l)
@@ -25,17 +25,17 @@ G=$[ ${nnodes} * ${nprocspn} ]
 echo S: job=${LSB_JOBID}  G=$G  N=${nnodes} 
 
 # grab some variables from environment - if dedefined
-#[[ -z "${SRCOS2D_LR_FACT}" ]] && LRfactStr="  " || LRfactStr=" --LRfactor  ${SRCOS2D_LR_FACT} "
+[[ -z "${SRCOS2D_LR_FACT}" ]] && LRfactStr="  " || LRfactStr=" --LRfactor  ${SRCOS2D_LR_FACT} "
 [[ -z "${SRCOS2D_JOBID}" ]] && jobId=$LSB_JOBID || jobId="G${G}_${SRCOS2D_JOBID}"
 env |grep SRCOS2D
 
 # load modules
 module load open-ce/1.1.3-py38-0
 
-baseDir=/gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+baseDir=/gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kE/
 wrkDir=${baseDir}/${jobId}
 
-echo S:my job  JID=$LSB_JOBID wrkSufix=$wrkSufix 
+echo S:my job  JID=$LSB_JOBID jobId=$jobId
 date
 
 #python -V
@@ -59,11 +59,23 @@ cd  $wrkDir
 echo PWD=`pwd`
 
 # special case: downloading VGG model manually
-# cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/hub/checkpoints
-# wget https://download.pytorch.org/models/vgg19-dcbb9e9d.pth
 # see also https://pytorch.org/docs/stable/hub.html
+export TORCH_HOME=$baseDir  # for storing VGG model
+vggPath=${TORCH_HOME}/hub/checkpoints
+if [ ! -f ${vggPath}/vgg19-dcbb9e9d.pth ] ; then 
+    echo S: download VGG model to ${vggPath}
+    cd ${vggPath}
+    pwd
+    wget https://download.pytorch.org/models/vgg19-dcbb9e9d.pth
+    ls -l
+    cd -
+else
+    echo S: VGG model found at ${vggPath}
+fi
 
-export TORCH_HOME=$baseDir  # for stpring VGG model
+export MPLCONFIGDIR=${baseDir}/mpl
+#environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+
 
 echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
 

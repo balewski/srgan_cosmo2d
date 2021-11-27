@@ -5,7 +5,6 @@ Defaults:
   summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
   summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
 
-
 facility_conf:
   perlmutter:
     base_path:  *CFS_OUT
@@ -16,19 +15,13 @@ facility_conf:
     D_num_fc_layer: 5 # is large for A100
     
   summit:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    G_LR: {decay/epochs: 900, gamma: 0.4, init: 6.e-5}	
+    D_LR: {decay/epochs: 900, gamma: 0.4, init: 4.e-5 }
     D_num_fc_layer: 3 # is small for V100	
     batch_size: 6
 
-Xbase_path:   # obsolete
-  corigpu:  /global/cscratch1/sd/balewski/tmp_digitalMind/superRes-cgpu/august/  
-  summitlogin: *AST153_WORLD
-    
-Xdata_path:   # obsolete
-  #corigpu: /global/cfs/cdirs/m3363/balewski/superRes-packed_h5/
-  corigpu:  *CFS_DATA
-  #perlmutter: *CFS_DATA
-  summit: *AST153_PROJ
-  summitlogin: *AST153_PROJ
 
 myId: dev4-dual
 
@@ -65,8 +58,8 @@ train_conf:
   PG_LR: { init: 1.e-4}	
 
   # Train epochs.
-  pre_epochs:   5   #  generator training phase.
-  epochs:       10   #  adversarial training phase.
+  pre_epochs:   50   #  generator training phase.
+  epochs:       1000   #  adversarial training phase.
 
   # Perceptual G-loss function weights:
   pixel_weight: 0.8
