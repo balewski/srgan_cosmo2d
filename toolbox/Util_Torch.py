@@ -2,6 +2,14 @@ import torch
 import torch.fft # needed by pytorch 1.7
 
 #...!...!..................
+def torchD_to_floatD(inp):
+    out={}
+    for x in inp:
+        y=inp[x].detach().cpu().numpy()
+        out[x]=float(y)
+    return out
+    
+#...!...!..................
 def transf_field2img_torch(field):
     return torch.log(field)
 

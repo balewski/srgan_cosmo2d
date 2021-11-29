@@ -6,7 +6,8 @@ infere for  test data
 
 Inference works alwasy on 1 GPU or CPUs
 
- ./predict.py  --modelPath /global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp10
+ sol=best2067; exp=dev4_lrFact1.
+./predict.py   --expName $exp --genSol $sol  
 
 
 """
@@ -36,7 +37,7 @@ def get_parser():
     parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
 
     parser.add_argument("--basePath",
-                        default='/global/homes/b/balewski/prje/tmp_NyxHydro4kD/'
+                        default='/global/homes/b/balewski/prje/tmp_NyxHydro4kE/'
                         , help="trained model ")
     parser.add_argument("--expName", default='exp03', help="main dir, train_summary stored there")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")

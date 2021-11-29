@@ -4,14 +4,18 @@
 
  ./ana_sr2d.py -e exp22 -s best595
 '''
-import sys,os
+import sys,os,copy
 from toolbox.Util_H5io3 import  read3_data_hdf5
-from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy
+from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy
 import numpy as np
 import argparse,os
 import scipy.stats as stats
 from pprint import pprint
 #from matplotlib.colors import LogNorm
+
+PLOT={'image':0, 'fft':0,
+      'skewer':0, 'rho+power':1 
+}
 
 
 #...!...!..................
@@ -24,7 +28,7 @@ def get_parser():
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kD/',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kE/',help='data location w/o expName')
  
     args = parser.parse_args()
     if args.expName!=None:
@@ -82,7 +86,8 @@ def post_process_srgan2D_fileds(fieldD,metaD):
         fieldD['ln rho+1'][kr]=img
         fieldD['ln fftA2+1'][kr]=np.log(fftA2+1)
         metaD[kr]['power']=[kphys,P]
-        
+        x,y=density_2Dfield_numpy(img,9.)
+        metaD[kr]['density']=[x,y]
 #=================================
 #=================================
 #  M A I N 
@@ -99,7 +104,7 @@ if __name__ == "__main__":
     #1inpF='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp23j/monitor/valid-adv-epoch0.h5'
     bigD,predMD=read3_data_hdf5(inpF)
     print('predMD:');pprint(predMD)
-    predMD['field2d']['ilr']=predMD['field2d']['hr']  # add infor ILR
+    predMD['field2d']['ilr']=copy.deepcopy(predMD['field2d']['hr'])  # add infor ILR
     
     # stage data
     fL=['lr','ilr','sr','hr']
@@ -125,7 +130,7 @@ if __name__ == "__main__":
     png=1
     ext='img%d'%args.index
     
-    if 1: # - - - -  plot images - - - - 
+    if PLOT['image']: # - - - -  plot images - - - - 
         ncol,nrow=3,1; xyIn=(15,5); figId=4
         #ncol,nrow=2,2; xyIn=(12,12); figId=4
         plt.figure(figId,facecolor='white', figsize=xyIn)
@@ -146,7 +151,7 @@ if __name__ == "__main__":
         
         save_fig(figId,ext=ext,png=png)
 
-    if 1: # - - - -  plot fft-images - - - - 
+    if PLOT['fft']: # - - - -  plot fft-images - - - - 
         ncol,nrow=3,1; xyIn=(15,5); figId=8
         plt.figure(figId,facecolor='white', figsize=xyIn)
         for i,kr in  enumerate(fL[1:]):
@@ -161,7 +166,7 @@ if __name__ == "__main__":
         
         save_fig(figId,ext=ext,png=png)
 
-    if 1: # - - - -  plot skewer - - - -
+    if PLOT['skewer']: # - - - -  plot skewer - - - -
         jx_hr,jy_hr=auxD['hr']['zmax_xyz'][:2]
         ncol,nrow=1,1; figId=5
         plt.figure(figId,facecolor='white', figsize=(15,4))
@@ -170,7 +175,7 @@ if __name__ == "__main__":
             data=fieldD['rho+1'][kr][jy_hr]
             binX=np.arange(data.shape[0])
             hcol=plDD['hcol'][kr]
-            ax.step(binX,data,label=kr,color=hcol,lw=1)
+            ax.step(binX,data,where='post',label=kr,color=hcol,lw=1)
         ax.axvline(jx_hr,linewidth=1.,color='m',linestyle='--')
         ax.grid()
         ax.set_yscale('log')
@@ -180,7 +185,7 @@ if __name__ == "__main__":
 
         save_fig(figId,ext=ext,png=png)
         
-    if 1: 
+    if PLOT['rho+power']: 
         ncol,nrow=2,2; figId=6
         plt.figure(figId,facecolor='white', figsize=(10,8))
 
@@ -191,9 +196,8 @@ if __name__ == "__main__":
         for i,kr in  enumerate(fL):
             img=fieldD['ln rho+1'][kr]
             hcol=plDD['hcol'][kr]
-            y, x, _ =ax.hist(img.flatten(),binsX,label=kr,edgecolor=hcol,lw=1.2,  histtype='step')
-            auxD[kr]['density']=y
-            #print('dens',kr,np.sum(y),np.sum(x))
+            x,y=auxD[kr]['density']
+            ax.step(x,y,where='post',label=kr,color=hcol)
         ax.set_yscale('log')
         ax.grid()
         tit='Density,  image idx=%d '%(args.index)
@@ -202,14 +206,14 @@ if __name__ == "__main__":
 
         if 1: # relative density
             ax=plt.subplot(nrow,ncol,3)
-            y_hr=auxD['hr']['density']
-            y_sr=auxD['sr']['density']
-            y_ilr=auxD['ilr']['density']
+            _,y_hr=auxD['hr']['density']
+            _,y_sr=auxD['sr']['density']
+            _,y_ilr=auxD['ilr']['density']
             
             s2h=y_sr/y_hr
             il2h=y_ilr/y_hr
-            ax.step(binsX[:-1],il2h,color=plDD['hcol']['ilr'],label='ILR/HR')           
-            ax.step(binsX[:-1],s2h,color=plDD['hcol']['sr'],label='SR/HR')
+            ax.step(binsX[:-1],il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')           
+            ax.step(binsX[:-1],s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
             ax.grid()
             tit='Relative density,  image idx=%d '%(args.index)
             ax.set(title=tit, xlabel=r'$ln(1+\rho)$',ylabel='SR / HR')
@@ -222,7 +226,7 @@ if __name__ == "__main__":
         for i,kr in  enumerate(fL):
             kphys,P=auxD[kr]['power']
             hcol=plDD['hcol'][kr]
-            ax.step(kphys,P ,label=kr,color=hcol)
+            ax.step(kphys,P ,where='post',label=kr,color=hcol)
         tit=r'Power Spectrum, FFT($\rho+1$), image idx=%d '%(args.index)
         ax.set(title=tit, xlabel='wavenumber (1/Mpc)',ylabel='P(k)')
         ax.legend(loc='best',title='img type')
@@ -242,9 +246,9 @@ if __name__ == "__main__":
             il2h=y_ilr/y_hr
             n2=kphys2.shape[0] # LR data have less wavelengths
             l2h=y_lr/y_hr[:n2]
-            ax.step(kphys2,l2h,color=plDD['hcol']['lr'],label='LR/HR') 
-            ax.step(kphys,il2h,color=plDD['hcol']['ilr'],label='ILR/HR')
-            ax.step(kphys,s2h,color=plDD['hcol']['sr'],label='SR/HR')
+            ax.step(kphys2,l2h,where='post',color=plDD['hcol']['lr'],label='LR/HR') 
+            ax.step(kphys,il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')
+            ax.step(kphys,s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
             ax.grid()
             tit='Relative power P(k),  image idx=%d '%(args.index)
             ax.set(title=tit, xlabel='wavenumber (1/Mpc)',ylabel='relative P(k)')

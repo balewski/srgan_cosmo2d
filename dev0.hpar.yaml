@@ -9,16 +9,16 @@ facility_conf:
   perlmutter:
     base_path:  *CFS_OUT
     data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
-    G_LR: {decay/epochs: 1000, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 1000, gamma: 0.4, init: 4.e-5 }
+    G_LR: {decay/epochs: 3, gamma: 0.4, init: 6.e-5}	
+    D_LR: {decay/epochs: 6, gamma: 0.6, init: 4.e-5 }
     batch_size: 16   #for A100
     D_num_fc_layer: 5 # is large for A100
     
   summit:
     base_path:  *AST153_WORLD
     data_path:  *AST153_PROJ
-    G_LR: {decay/epochs: 1000, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 1000, gamma: 0.4, init: 4.e-5 }
+    G_LR: {decay/epochs: 100, gamma: 0.4, init: 6.e-5}	
+    D_LR: {decay/epochs: 100, gamma: 0.6, init: 4.e-5 }
     D_num_fc_layer: 3 # is small for V100	
     batch_size: 6
 
@@ -47,7 +47,7 @@ model_conf:
 
 
 num_cpu_workers: 4
-opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
+opt_pytorch: {autotune: true, detect_anomaly: true, zerograd: true}
 
 text_log_interval/epochs: 2
 checkpoint_interval/epochs: 50

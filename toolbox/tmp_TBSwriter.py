@@ -16,7 +16,7 @@ class TBSwriter(object):
 
 #...!...!..................
     def add_tbsummary_record(self,txt):
-        self.TBSwriter.add_text('summary',txt , global_step=self.tbsummary_step)
+        self.TBSwriter.add_text('0summary',txt , global_step=self.tbsummary_step)
         self.tbsummary_step+=1
 
 # - - - - -  NOT  USED  YET - - - - - -         

@@ -17,7 +17,8 @@ export MASTER_ADDR=`hostname`
 export SLURM_NTASKS=1
 export SLURM_PROCID=0
 export SLURM_LOCALID=0
- shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
+time shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
+>>> real	4m22.124s
 
 
 Run on 4 A100 on PM:
@@ -68,7 +69,7 @@ def get_parser():
   parser = argparse.ArgumentParser()
   parser.add_argument("--design", default='dev0', help='[.hpar.yaml] configuration of model and training')
 
-  parser.add_argument("--dataName",default="dm_density_4096",help="[.cpair.h5] name data  file")
+  parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
   parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')  
@@ -169,7 +170,7 @@ if __name__ == '__main__':
     if args.epochs!=None:
         params['train_conf']['epochs']= args.epochs
     if args.LRfactor!=None:
-        for  x in ["D_LR","G_LR"]: 
+        for  x in ["D_LR"]: #,"G_LR"]: 
           params['train_conf'][x]['init']*= args.LRfactor
        
     trainer = Trainer(params)

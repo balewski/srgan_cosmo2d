@@ -22,6 +22,14 @@ def prep_fieldMD(inpMD,trainPar):
     return outMD
 
 #...!...!..................
+def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=50): # ln_field1=ln(filed+1)  
+    #print('rho2D: ln_field1',ln_field1.shape)
+    binsX=np.linspace(0.,maxY,nbin)
+    y, x= np.histogram(ln_field1, bins  =binsX)  # will flatten input array
+    return x[:-1],y  # x contains begin of bins
+    #                plot with:    ax.step(x[:-1],y,where='post') 
+   
+#...!...!..................
 def powerSpect_2Dfield_numpy(field,d=1):  # d: Sample spacing (inverse of the sampling rate)
     #print('Pow2D: field',field.shape)
     npix = field.shape[0]

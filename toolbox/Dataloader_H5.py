@@ -63,8 +63,8 @@ def get_data_loader(trainMD,domain, verb=1):
 #...!...!..................
 def compute_samples_division(numSamp): # build division into train/valid/test/skip
     skipFrac=0.1  # amout of samples left out to assure separation between train/valid/test subset
-    domFrac={'valid':0.15,'test':0.05,'train':0.7} # 32 GPUs
-    #domFrac={'valid':0.27,'test':0.02,'train':0.7}; skipFrac=0.01  # optimal for 64 GPUs
+    #domFrac={'valid':0.15,'test':0.05,'train':0.7} # 32 GPUs
+    domFrac={'valid':0.27,'test':0.02,'train':0.7}; skipFrac=0.01  # optimal for 64 GPUs*BS=16
 
     numSkip=int(numSamp * skipFrac/3.)
     assert numSkip>1
