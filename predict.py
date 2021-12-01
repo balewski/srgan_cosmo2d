@@ -102,7 +102,7 @@ def model_infer(model,data_loader,trainPar):
             srImg=srImg_dev.cpu()
             n2=nSamp+srImg.shape[0]
             print('nn',nSamp,n2)
-            # convert images to densities
+            # convert images to densities=rho+1
             lr=np.exp(lrImg.detach()).numpy()
             hr=np.exp(hrImg.detach()).numpy()
             sr=np.exp(srImg.detach()).numpy()
@@ -112,13 +112,14 @@ def model_infer(model,data_loader,trainPar):
             LRall[nSamp:n2,:]=lr
 
             # compute interploated LR
-            print('lrImg',lrImg.shape) # B,C,W,H
+            #print('lrImg',lrImg.shape) # B,C,W,H
+            #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
             #print('lrImg.T',lrImg.T.shape) # C,W,H
             # must put channel as the last axis
             #d=lr.shape[1]
             x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
             x3,_=interpolate_2Dfield(x2, upscale)
-            print('x3',x3.shape)
+            #print('x3',x3.shape)
             #d*=upscale
             fact=upscale*upscale
             ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
@@ -168,7 +169,9 @@ if __name__ == '__main__':
         state_dict = torch.load(model_path, map_location=device)
         model = torch.nn.DataParallel(model) # disable if 1-gpu training was done
         model.load_state_dict(state_dict)
-       
+
+    trainPar['h5_path']='/global/homes/b/balewski/prje/data_NyxHydro4k/B/' #tmp
+    trainPar['num_cpu_workers']=1
     data_loader = get_data_loader(trainPar, args.domain, verb=1)
  
     startT=time.time()

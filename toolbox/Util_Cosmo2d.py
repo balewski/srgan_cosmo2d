@@ -22,10 +22,13 @@ def prep_fieldMD(inpMD,trainPar):
     return outMD
 
 #...!...!..................
-def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=50): # ln_field1=ln(filed+1)  
+def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=100,pad1=True): # ln_field1=ln(filed+1)  
     #print('rho2D: ln_field1',ln_field1.shape)
-    binsX=np.linspace(0.,maxY,nbin)
-    y, x= np.histogram(ln_field1, bins  =binsX)  # will flatten input array
+    binsX=np.linspace(0.,maxY,nbin,endpoint=False)
+    y, x= np.histogram(ln_field1, bins=binsX)  # will flatten input array
+    if pad1: # to avoid NaN when computing ratio
+        y[y==0.]=1.11111
+        
     return x[:-1],y  # x contains begin of bins
     #                plot with:    ax.step(x[:-1],y,where='post') 
    

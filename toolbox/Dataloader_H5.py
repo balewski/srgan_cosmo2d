@@ -205,15 +205,16 @@ class Dataset_h5_srgan2D(object):
         assert hr.shape[0]==hr.shape[1]
         hr=random_flip_rot_WHC(hr) # shape: WHC
         lr=rebin_WHC(hr,cf['upscale_factor'])
-        #print('DL-GI hr:',hr.shape,', lr:',lr.shape)
+        #print('DL-GI hr:',hr.shape,np.sum(hr),np.min(hr),', lr:',lr.shape,np.sum(lr))
         # convert to CWH
         lr=lr.reshape(1,cf['lr_size'],-1)
         hr=hr.reshape(1,cf['hr_size'],-1)
 
         # transform field to image
         
-        lrImg=transf_field2img_torch(torch.from_numpy(np.copy(lr+1 )) )
-        hrImg=transf_field2img_torch(torch.from_numpy(np.copy(hr+1 )) )
-        
+        lrImg=transf_field2img_torch(torch.from_numpy(np.copy(lr+1. )) )
+        hrImg=transf_field2img_torch(torch.from_numpy(np.copy(hr+1. )) )
+        hr2=torch.exp(hrImg)
+        #print('DL-GI2 hr:',torch.sum(hr2),torch.min(hr2))
         return lrImg,hrImg
 

@@ -23,7 +23,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2, 3], help="increase output verbosity", default=1, dest='verb')
 
-    parser.add_argument( "-i","--index", default=3,type=int,help="image index")
+    parser.add_argument( "-i","--index", default=33,type=int,help="image index")
     parser.add_argument( "-X","--noXterm", action='store_true', default=False, help="disable X-term for batch mode")
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
@@ -79,15 +79,18 @@ def post_process_srgan2D_fileds(fieldD,metaD):
         data=fieldD['rho+1'][kr]  # density, keep '+1'  
         print('data %s %s '%(kr,str(data.shape)))
         jy,jx,zmax=max_2d_index(data)
-        print(jy,jx,kr,'max:',zmax)
+        print(jy,jx,kr,'max:',zmax,np.min(data),np.sum(data))
         metaD[kr]['zmax_xyz']=[jx,jy,zmax]
-        img=np.log(data)  # for plotting and density histo
-        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=metaD[kr]['space_step'])
+        img=np.log(data)  
         fieldD['ln rho+1'][kr]=img
+        
+        x,y=density_2Dfield_numpy(img,10.)
+        metaD[kr]['density']=[x,y]
+        
+        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=metaD[kr]['space_step'])
         fieldD['ln fftA2+1'][kr]=np.log(fftA2+1)
         metaD[kr]['power']=[kphys,P]
-        x,y=density_2Dfield_numpy(img,9.)
-        metaD[kr]['density']=[x,y]
+
 #=================================
 #=================================
 #  M A I N 
@@ -191,8 +194,6 @@ if __name__ == "__main__":
 
         # - - - -  density histo - - - - 
         ax=plt.subplot(nrow,ncol,1)
-        binsX=np.linspace(-0.5,9,50)
-        #binsX=50
         for i,kr in  enumerate(fL):
             img=fieldD['ln rho+1'][kr]
             hcol=plDD['hcol'][kr]
@@ -206,20 +207,23 @@ if __name__ == "__main__":
 
         if 1: # relative density
             ax=plt.subplot(nrow,ncol,3)
-            _,y_hr=auxD['hr']['density']
+            x,y_hr=auxD['hr']['density']
             _,y_sr=auxD['sr']['density']
             _,y_ilr=auxD['ilr']['density']
             
             s2h=y_sr/y_hr
             il2h=y_ilr/y_hr
-            ax.step(binsX[:-1],il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')           
-            ax.step(binsX[:-1],s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
+            ax.step(x,il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')           
+            ax.step(x,s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
             ax.grid()
             tit='Relative density,  image idx=%d '%(args.index)
             ax.set(title=tit, xlabel=r'$ln(1+\rho)$',ylabel='SR / HR')
             ax.axhline(1.,linewidth=1., linestyle='--', color='k')
             ax.set_ylim(0.4,1.6)
             ax.legend(loc='best')
+            #print('xx',x)
+            #print('hr',y_hr)
+            #print('sr',y_sr)
         
         # .......power spectrum
         ax=plt.subplot(nrow,ncol,2)
