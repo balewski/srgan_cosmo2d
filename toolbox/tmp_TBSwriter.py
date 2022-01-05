@@ -11,12 +11,12 @@ import os
 class TBSwriter(object):
     def __init__(self,expDir):
         #print('TBS:cstr, expDir=',expDir)
-        self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb_logs'))
+        self.TBSwriter=SummaryWriter(os.path.join(expDir, 'tb'))
         self.tbsummary_step=0
 
 #...!...!..................
     def add_tbsummary_record(self,txt):
-        self.TBSwriter.add_text('summary',txt , global_step=self.tbsummary_step)
+        self.TBSwriter.add_text('0summary',txt , global_step=self.tbsummary_step)
         self.tbsummary_step+=1
 
 # - - - - -  NOT  USED  YET - - - - - -         

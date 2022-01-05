@@ -10,9 +10,10 @@ from toolbox.Dataloader_H5 import get_data_loader  # 1-cell (code is simpler)
 from toolbox.Util_IOfunc import read_yaml,dateT2Str
 from toolbox.Util_H5io3 import  write3_data_hdf5
 from toolbox.Model_2d import Generator, Discriminator, ContentLoss
-from toolbox.Util_Torch import all_reduce_dict, compute_fft, transf_img2field_torch
+from toolbox.Util_Torch import all_reduce_dict, compute_fft, transf_img2field_torch, torchD_to_floatD
 #from toolbox.tmp_figures import ( plt_slices, plt_power )
 from toolbox.tmp_TBSwriter import TBSwriter
+from toolbox.RingAverageCheck import RingAverageCheck
 
 import torch.optim as optim
 
@@ -131,19 +132,28 @@ class Trainer(TBSwriter):
         self.D_opt = optim.Adam(self.D_model.parameters(), lr=trCf['D_LR']['init'])
 
 
+        ''' disable schedulers
         self.G_sched = torch.optim.lr_scheduler.StepLR(self.G_opt, trCf['G_LR']['decay/epochs'], gamma=trCf['G_LR']['gamma'], verbose=0)
         self.D_sched = torch.optim.lr_scheduler.StepLR(self.D_opt, trCf['D_LR']['decay/epochs'], gamma=trCf['D_LR']['gamma'], verbose=0)
+        '''
 
 
-        # Loss function.
+        #.... Loss functions.
         self.psnr_criterion   = torch.nn.MSELoss().to(self.device)     # PSNR metrics.
         self.pixel_criterion  = torch.nn.MSELoss().to(self.device)     # Pixel loss.
-        self.fft_criterion  = torch.nn.MSELoss().to(self.device)     # FFT loss.
+        self.fft_criterion   = torch.nn.MSELoss().to(self.device)     # FFT loss.
+        self.msum_criterion  = torch.nn.MSELoss().to(self.device)     # mass_sum loss.
         
         self.content_criterion= ContentLoss().to(self.device)    # Content loss is activation(?) of 36th layer in VGG19
         #  Binary Cross Entropy between the target and the input probabilities
         self.adversarial_criterion = torch.nn.BCELoss().to(self.device)     # Adversarial loss.            
-         
+
+        # initialize early-stop due to stuck discr(G) for too many epochs
+        esCf=trCf['early_stop_discr']
+        self.earlyStopRing=RingAverageCheck(
+            func= lambda avr,std: avr+std < esCf['discr_G_thres'],
+            numCell=esCf['ring_size/epochs'],initVal=0.5)  # init at large values to not trip during filling of the ring
+        
         if trCf['resume']:
             print("Resuming...")
             never_tested1 # must sync weights on all ranks
@@ -215,7 +225,7 @@ class Trainer(TBSwriter):
         epochs=trCf['epochs']
         
         if self.verb:
-            txt='exp=%s  pretrain start, epochs [%d,%d], numGpu=%d, date=%s' %(self.params['exp_name'],start_pre_epoch, pre_epochs,self.params['world_size'],self.sumRec['train_date'])
+            txt='exp=%s  pretrain, epochs [%d,%d], numGpu=%d, date=%s' %(self.params['exp_name'],start_pre_epoch, pre_epochs,self.params['world_size'],self.sumRec['train_date'])
             self.add_tbsummary_record(txt)
             logging.info(txt)
             
@@ -248,15 +258,15 @@ class Trainer(TBSwriter):
             # Save the weight of the last generator network under Epoch in this stage.
             torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "p-last.pth"))
         # Initialize the evaluation index of the adversarial network training phase.
-        best_psnr_value = 0.0; best_epoch=-1
+        best_psnr_value = 0.0; best_epoch=-1; best_cnt={}
         psnrA=0.; psnrB=0.; psnrC=0. # for best epoch tag
-
+        
         if 0:  # I'm not sure if the last model must be the best, OFF for now, skips IO
             # Load the model weights with the best indicators in the previous round of training.
             self.G_model.load_state_dict(torch.load(os.path.join(exp_dir2, "p-best.pth")))
        
         if self.verb:
-            txt='adv_train start, epochs [%d,%d],  numGpu=%d, elapsedTime=%.1f min' %(start_epoch, epochs,self.params['world_size'],(time.time()-T0)/60.)
+            txt='Start adv_train, epochs [%d,%d],  numGpu=%d, elapsedTime=%.1f min' %(start_epoch, epochs,self.params['world_size'],(time.time()-T0)/60.)
             #self.TBSwriter.add_text('summary',txt , global_step=1)
             self.add_tbsummary_record(txt)
             logging.info(txt)
@@ -267,26 +277,34 @@ class Trainer(TBSwriter):
             locTrainSamp=len(self.train_loader)*self.train_loader.batch_size
             locValSamp=len(self.valid_loader)*self.valid_loader.batch_size
             kfac=self.params['world_size']/1.
-            
+
+        #  A A A A A A A A   D D D D D D   V V v V V   E E E E E   R R R R  S     
         # Training the adversarial network stage.
-        for epoch in range(start_epoch, epochs):
-            
+        for epoch in range(start_epoch, epochs):            
             # Apply learning rate warmup
-            if epoch < trCf['adv_warmup_epochs']:
-                self.G_opt.param_groups[0]['lr']=trCf['G_LR']['init']*float(epoch+1.)/trCf['adv_warmup_epochs']
-                self.D_opt.param_groups[0]['lr']=trCf['D_LR']['init']*float(epoch+1.)/trCf['adv_warmup_epochs']
+            if epoch < trCf['adv_warmup/epochs']:
+                self.G_opt.param_groups[0]['lr']=trCf['G_LR']['init']*float(epoch+1.)/trCf['adv_warmup/epochs']
+                self.D_opt.param_groups[0]['lr']=trCf['D_LR']['init']*float(epoch+1.)/trCf['adv_warmup/epochs']
+
+            if epoch==trCf['G_LR']['decay/epochs']:
+                self.G_opt.param_groups[0]['lr']=trCf['G_LR']['init']*trCf['G_LR']['gamma']
+            if epoch==trCf['D_LR']['decay/epochs']:
+                self.D_opt.param_groups[0]['lr']=trCf['D_LR']['init']*trCf['D_LR']['gamma']
+                
                 
             # Train each epoch for adversarial network.
             Ta=time.time()
-            self.train_adversarial(epoch)
+            cntD=self.train_adversarial(epoch)
             Tb=time.time()
             # Verify each epoch for adversarial network.
             psnr_value = self.validate( epoch, "adv")
             Tc=time.time()
-            
+
+            ''' OFF
             # Adjust the learning rate of the adversarial model.
             self.D_sched.step()
             self.G_sched.step()
+            '''
 
             # ..... zoo of monitoring and checkpointing is below .....
             #  use running average over last 3 epochs to tag best epoch
@@ -300,6 +318,9 @@ class Trainer(TBSwriter):
                     is_best =True
                     best_psnr_value = psnrAvr
                     best_epoch=epoch
+                    best_cnt=torchD_to_floatD(cntD)
+                    best_cnt['val_psnr']=float(psnrAvr)
+                    best_cnt['epoch']=int(epoch)
             # Save the weight of the adversarial network under epoch. 
             if self.isRank0 and  epoch% self.params['checkpoint_interval/epochs']==0:
                 torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, f"d-epoch{epoch }.pth"))
@@ -308,14 +329,16 @@ class Trainer(TBSwriter):
                 torch.save(self.D_model.state_dict(), os.path.join(exp_dir2, "d-best%d.pth"%(epoch)))
                 torch.save(self.G_model.state_dict(), os.path.join(exp_dir2, "g-best%d.pth"%(epoch)))
                 txt='Epoch %d ADV best PSNR=%.2f elaT=%.1f min, exp=%s'%(epoch,best_psnr_value,(time.time()-T0)/60.,self.params['exp_name'])
-                self.TBSwriter.add_text('adv_progress',txt , epoch)
+                self.TBSwriter.add_text('1adv_progress',txt , epoch)
+                self.TBSwriter.add_text('2adv_best_cnt',str(best_cnt) , epoch)
                 logging.info(txt)
                 
             
             if self.isRank0: # monitor LR & speed
                 recLR={'G':self.G_opt.param_groups[0]['lr'],'D':self.D_opt.param_groups[0]['lr']}
                 #print('JJ:',epoch, recLR)
-                self.TBSwriter.add_scalars('Train_adv/LR',recLR , epoch)
+                recLab='Train_adv/LR '+self.params['exp_name']
+                self.TBSwriter.add_scalars(recLab,recLR , epoch)
                 Ttot=Tc-Ta
                 Ttrain=Tb-Ta
                 Tval=Tc-Tb
@@ -324,7 +347,7 @@ class Trainer(TBSwriter):
                 if epoch>start_epoch: TperEpoch.append(Ttot)
 
                 rec3.update({'val:20':kfac*locValSamp/Tval/20.})  # val glob samp/msec
-                self.TBSwriter.add_scalars("Train_adv/glob_speed (samp:sec)",rec3 , epoch)
+                self.TBSwriter.add_scalars("Train_adv/speed_global (samp:sec)",rec3 , epoch)
                 self.TBSwriter.add_scalar("Train_adv/epoch_time (sec)", Ttot,epoch)
                 
                 tV=np.array(TperEpoch)
@@ -335,8 +358,19 @@ class Trainer(TBSwriter):
 
                 txt='ADV epoch %d took %.1f sec, avr=%.2f +/-%.2f sec/epoch, elaT=%.1f min, nGpu=%d, psnr=%.2f best_psnr=%.2f'%(epoch, Ttot, tAvr,tStd,(Tc-T0)/60.,self.params['world_size'],psnr_value,best_psnr_value)
                 logging.info(txt)
-                                                            
+
+            
+            if self.isRank0: # monitor LR & speed
+                txt='ADV epoch %d early-stop=%d,  avr discr(G)=%.2g +-%.2g '%(epoch,cntD['early_stop_discr'],self.earlyStopRing.avr,self.earlyStopRing.std)
+                logging.info(txt)
                 
+            if cntD['early_stop_discr']>0.5:
+                if self.isRank0:
+                    self.sumRec['early_stop_discr']=True
+                    self.sumRec['early_stop_info']=txt
+                    self.add_tbsummary_record(txt)
+                break  # stop the training
+            
         # = = = =  end of Loop-over-advEpochs = = = = = = = 
         if self.isRank0:
             # Save the weight of the adversarial network under the last epoch
@@ -348,12 +382,13 @@ class Trainer(TBSwriter):
         if self.isRank0:  # add info to summary, cleanup          
             rec={'epoch_stop':epoch, 'state':'model_trained'} 
             rec['train_duration/sec']=time.time()-T0
-            rec['timePerAdverEpoch_sec']=[float('%.2f'%x) for x in [tAvr,tStd] ]            
+            rec['timePerAdverEpoch_sec']=[float('%.2f'%x) for x in [tAvr,tStd] ]
+            rec['adv_best_counter']=best_cnt
             self.sumRec.update(rec)
 
         if self.verb:
-            txt='exp=%s end, best PSNR=%.2f in epoch %d, last epoch %d, numGpu=%d, elapsedTime=%.1f min, globSamp/sec=%.1f' %(self.params['exp_name'],best_psnr_value,best_epoch, epoch,self.params['world_size'],(time.time()-T0)/60.,rec3['train'])
-            #self.TBSwriter.add_text('summary',txt , global_step=2)
+            txt='End: exp=%s, best PSNR=%.2f in epoch %d, last epoch %d, numGpu=%d, elapsedTime=%.1f min, globSamp/sec=%.1f globBS=%d' %(self.params['exp_name'],best_psnr_value,best_epoch, epoch,self.params['world_size'],(time.time()-T0)/60.,rec3['train'],self.params['global_batch_size'])
+           
             self.add_tbsummary_record(txt)
             logging.info(txt)
 
@@ -413,8 +448,12 @@ class Trainer(TBSwriter):
         trCf=self.params['train_conf']
         # Calculate how many iterations there are under Epoch.
         batches = len(self.train_loader)
-        cnt={x:0. for x in ['pixel_loss','advers_loss','content_loss','g_loss','d_real','d_fake','d_loss']}
-        if 'fft_weight' in trCf: cnt['fft_loss']=0.
+        cnt={x:0. for x in ['pixel_loss','advers_loss','content_loss','fft_loss','msum_loss','g_loss','d_real','d_fake','d_loss']}
+        
+        if epoch < trCf['perc_warmup/epochs']:
+            percAtten=float(epoch+1.)/trCf['perc_warmup/epochs']
+        else:
+            percAtten=1.
         
         # Set adversarial network in training mode.
         self.D_model.train()
@@ -469,29 +508,39 @@ class Trainer(TBSwriter):
             output = self.D_model(sr) # dg_fake_decision, len=BS filled w/ probabilities of being real
 
             # Perceptual_loss= weighted sum:  pixel + content +  adversarial + power_spect
-            advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) #g_error , will train G to pretend it's genuine
-            pixel_loss  = trCf['pixel_weight'] *self.pixel_criterion(sr, hr.detach())
-            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hr.detach())
+            advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
+            content_loss =  percAtten *trCf['content_weight'] *self.content_criterion(sr, hr)
+            pixel_loss  =  percAtten *trCf['pixel_weight'] *self.pixel_criterion(sr, hr)#.detach())
 
-            fft_loss=0.
-            if 'fft_weight' in trCf:                
-                hr_fft=compute_fft( transf_img2field_torch(hr.detach()))
-                sr_fft=compute_fft( transf_img2field_torch(sr))
-                fft_loss =  trCf['fft_weight'] *self.fft_criterion(sr_fft, hr_fft)
-                cnt['fft_loss']+=fft_loss
+            # convert from log(mass+1 ) --> mass+1, dim=[BS,1,512,512]
+            hr_field=transf_img2field_torch(hr)
+            sr_field=transf_img2field_torch(sr)
+
+            #  compute integral for fields difference (more accurate?)
+            delta_msum=torch.sum(hr_field-sr_field,(2,3))
+            #print('bb',hr_msum.shape,type(hr_msum))
             
+            msum_loss= percAtten *trCf['msum_weight'] *self.msum_criterion(delta_msum, torch.zeros_like(delta_msum))
+            
+            hr_fft=compute_fft( hr_field)
+            sr_fft=compute_fft( sr_field)
+            fft_loss = percAtten *trCf['fft_weight'] *self.fft_criterion(sr_fft, hr_fft)
+                            
             # Update the weights of the generator model.
-            g_loss = pixel_loss + content_loss + advers_loss + fft_loss
+            g_loss =  advers_loss +  pixel_loss + content_loss + fft_loss + msum_loss
+            
             g_loss.backward() 
             self.G_opt.step()  # Only optimizes G's parameters
             
             d_sr2 = output.mean()  #dg_fake_decision_mean, what is the purpose of 'sr2' ???
             
-            # ..... only monitoring is below
+            # ..... only monitoring is below + early-stop condition(s)
             cnt['d_real']+=d_hr
             cnt['d_fake']+=d_sr1
             cnt['d_loss']+=d_loss
             cnt['pixel_loss']+=pixel_loss
+            cnt['fft_loss']+=fft_loss
+            cnt['msum_loss']+=msum_loss
             cnt['advers_loss']+=advers_loss
             cnt['content_loss']+=content_loss
             cnt['g_loss']+=g_loss
@@ -503,25 +552,33 @@ class Trainer(TBSwriter):
                           f"D Loss: {d_loss.item():.3g} G Loss: {g_loss.item():.3g} "
                           f"D(HR): {d_hr:.6f} D(SR1)/D(SR2): {d_sr1:.3g}/{d_sr2:.3g}.")
         # end of epoch, compute summary
-        for x in cnt: cnt[x]/=batches
+        for x in cnt: cnt[x]/=batches        
+        
         #print('bef',self.params['world_rank'],cnt)
         cnt=all_reduce_dict(cnt,self.dist)
+        self.earlyStopRing.update(cnt['d_fake'])
+        #print('RR',self.params['world_rank'],cnt['d_fake'],self.earlyStopRing.buf)
+        cnt['early_stop_discr']=torch.tensor(self.earlyStopRing.check(),dtype=torch.float32)
         if self.isRank0:
+
+            rec={'percept_w_atten':percAtten,'avr+std_dec_G':self.earlyStopRing.avr+self.earlyStopRing.std}
+            self.TBSwriter.add_scalars("Train_adv/misc", rec,epoch)
+           
             for x in ['g_loss','d_loss']:
                 self.TBSwriter.add_scalar("Train_adv/"+x, cnt[x],epoch)
                 
-            rec={x:cnt[x] for x in ['pixel_loss','advers_loss','content_loss','fft_loss'] }
+            rec={x:cnt[x] for x in ['pixel_loss','advers_loss','content_loss','fft_loss','msum_loss'] }
             rec['sum']=cnt ['g_loss']
             self.TBSwriter.add_scalars("Train_adv/g_crit", rec, epoch)
 
             rec={x:cnt[x] for x in ['d_real','d_fake'] }
-            self.TBSwriter.add_scalars("Train_adv/d_dec", rec, epoch)
-
+            self.TBSwriter.add_scalars("Train_adv/d_decision", rec, epoch)
+        return cnt
             
 #...!...!..................
     def validate(self, epoch, stage) -> float:
         """ Verify the generator model on validation data
-            stage (str): only to redirect the printouts.
+            stage is [gen,adv] toredirect the printouts.
         Returns: PSNR value(float).
         """
         # Calculate how many iterations there are under epoch.
@@ -543,6 +600,7 @@ class Trainer(TBSwriter):
                
             # end of epoch, compute summary
             for x in cnt: cnt[x]/=batches
+            
             cnt=all_reduce_dict(cnt,self.dist)
 
             # Write the value of each round of verification indicators into Tensorboard.
@@ -571,5 +629,5 @@ class Trainer(TBSwriter):
                         
                         #print('DDD');pprint(metaD)
                         write3_data_hdf5(bigD,outF,metaD=metaD,verb=0)
-                    
+
         return cnt['psnr']
