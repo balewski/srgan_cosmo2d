@@ -13,9 +13,7 @@ import scipy.stats as stats
 from pprint import pprint
 #from matplotlib.colors import LogNorm
 
-PLOT={'image':0, 'fft':0,
-      'skewer':0, 'rho+power':1 
-}
+PLOT={'image':1, 'fft':1, 'skewer':0, 'rho+power':1  }
 
 
 #...!...!..................
@@ -28,7 +26,7 @@ def get_parser():
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kE/',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/',help='data location w/o expName')
  
     args = parser.parse_args()
     if args.expName!=None:

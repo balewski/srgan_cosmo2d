@@ -5,9 +5,10 @@ set -u ;  # exit  if you try to use an uninitialized variable
 k=0
 
 
-for lrFact in 0.5 0.7 1.0 1.5 2.0  ; do 
-#for lrFact in 1.5 ; do # one-off
-    jobId=lrFact${lrFact}
+#for lrFact in 0.02 0.05 0.10 0.20 0.50  1.00 2.00  ; do
+for lrFact in 0.44 0.67 1.00 1.50 2.30 3.50  ; do    
+#for lrFact in 1.0 ; do 
+    jobId=lrFactG${lrFact}
 
     echo
     echo start jobId=$jobId

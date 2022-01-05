@@ -105,7 +105,20 @@ class Discriminator(nn.Module):
                 nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
                 nn.Sigmoid()
             )
-        elif conf['fc_layers']==5: # for A100
+        elif conf['fc_layers']==4: # for A100 but smaller
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.3),
+                nn.Linear(524288 , 1024),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(1024, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        elif conf['fc_layers']==5: # for A100 big
             self.classifier = nn.Sequential(
                 nn.Dropout(p=0.2),
                 nn.Linear(524288 , 1024),# 524288--> image_size=512, 4 upsampl

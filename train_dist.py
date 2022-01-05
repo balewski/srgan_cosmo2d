@@ -24,23 +24,18 @@ time shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 
 Run on 4 A100 on PM:
 salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1  
 
- export MASTER_ADDR=`hostname`
- srun -n1 shifter ./train_dist.py  --design dev4  --facility perlmutter
-
-
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp05
+srun -n 2 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2
 
 On Summit: salloc, as corigpu, use facility=summitlogin
 
 Production job ??
-srun -n 2 -l ./train_dist.py --dataName 2021_05-Yueying-disp_17c --design supRes2 
 
 Display TB
 ssh cori-tb
-cd  ~/prje/tmp_NyxHydro4kD
+cd  ~/prje/tmp_NyxHydro4kF
  module load pytorch
  tensorboard  --port 9800 --logdir=exp03
 
@@ -170,7 +165,7 @@ if __name__ == '__main__':
     if args.epochs!=None:
         params['train_conf']['epochs']= args.epochs
     if args.LRfactor!=None:
-        for  x in ["D_LR"]: #,"G_LR"]: 
+        for  x in ["G_LR"]: #,"D_LR"]: 
           params['train_conf'][x]['init']*= args.LRfactor
        
     trainer = Trainer(params)

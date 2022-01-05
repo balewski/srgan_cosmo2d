@@ -1,6 +1,6 @@
 Defaults:
   # note, CFS-based location will run slower vs. SCRATCH
-  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kF/
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kE/
   cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
   summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
   summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
@@ -9,16 +9,16 @@ facility_conf:
   perlmutter:
     base_path:  *CFS_OUT
     data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
-    G_LR: {decay/epochs: 3, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 6, gamma: 0.6, init: 4.e-5 }
+    G_LR: {decay/epochs: 1000, gamma: 0.5, init: 4.e-5}	
+    D_LR: {decay/epochs: 2000, gamma: 0.6, init: 1.e-6 }
     batch_size: 16   #for A100
-    D_num_fc_layer: 4
+    D_num_fc_layer: 4 
     
   summit:
     base_path:  *AST153_WORLD
     data_path:  *AST153_PROJ
-    G_LR: {decay/epochs: 100, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 100, gamma: 0.6, init: 2.e-6 }
+    G_LR: {decay/epochs: 900, gamma: 0.4, init: 4.e-5}	
+    D_LR: {decay/epochs: 900, gamma: 0.4, init: 6.e-6 }
     D_num_fc_layer: 3 # is small for V100	
     batch_size: 6
 
@@ -26,7 +26,7 @@ facility_conf:
 myId: dev4-dual
 
 # optional, reduces training samples
-max_glob_samples_per_epoch: 256  # do 1400 or 256
+#max_glob_samples_per_epoch: 256  # do 1400 or 256
 hr_size: 512
 upscale_factor: 4
 num_inp_chan: 1  # grey images
@@ -47,33 +47,33 @@ model_conf:
 
 
 num_cpu_workers: 4
-opt_pytorch: {autotune: true, detect_anomaly: true, zerograd: true}
+opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
 
 text_log_interval/epochs: 2
 checkpoint_interval/epochs: 50
 pred_dump_interval/epochs: 100  # 0=OFF 
 
 train_conf:
-  adv_warmup/epochs: 1
-  perc_warmup/epochs: 5  # attenuates perceptual loss
+  adv_warmup/epochs: 30
+  perc_warmup/epochs: 400  # attenuates perceptual loss
+  
   early_stop_discr:
-    ring_size/epochs: 4
-    discr_G_thres: 0.02
+    ring_size/epochs: 500
+    discr_G_thres: 0.04
 
   PG_LR: { init: 1.e-4}	
 
   # Train epochs.
-  pre_epochs:   5   #  generator training phase.
-  epochs:       10   #  adversarial training phase.
+  pre_epochs:   50   #  generator training phase.
+  epochs:     1600   #  adversarial training phase.
 
   # Perceptual G-loss function weights:
-  pixel_weight: 0.8
-  content_weight: 0.2
   advers_weight: 0.03
-  fft_weight: 0.04
-  msum_weight: 3.e-11
+  content_weight: 0.1
+  pixel_weight: 0.8
+  fft_weight: 0.03
+  msum_weight: 1.e-9
 
-  
   # legacy variables
   start_pre_epoch: 0
   start_epoch:            0    # ???The number of initial iterations of the adversarial training phase. When set to 0, it means incremental training.

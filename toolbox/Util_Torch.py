@@ -19,13 +19,17 @@ def transf_img2field_torch(img):
 
 #...!...!..................
 def compute_fft(fieldBatch):  # used in training loss
-    #print('ff', fieldB.shape,flush=True)    
     #assert fieldB.shape[1]==1 # 1 channel
     fourier_image = torch.fft.fftn(fieldBatch) #FFTs only the last two dimensions by default.
     #print('FTCS:inp',fieldBatch.shape,'fft:',fourier_image.shape)
+    # >>> torch.Size([16, 1, 512, 512]) fft: torch.Size([16, 1, 512, 512])
+    dimEuc=fieldBatch.shape[-1]
+    # clip FFT image to a quadrant
+    dimFft=dimEuc//2
+    fourier_image=fourier_image[:,:,:dimFft,:dimFft]    
     fourier_amplitudes2= torch.abs(fourier_image)**2
     #print('FFT fourier_amplitudes2',fourier_amplitudes2.shape)
-    return torch.log(fourier_amplitudes2+1)
+    return torch.log(fourier_amplitudes2+1.)
 
 #...!...!..................
 def all_reduce_dict(input_dict, dist,average=True):

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -N8 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH --time=5:10:00  -J srCos2d
+#SBATCH --time=5:30:00  -J srCos2d
 #-SBATCH --time=20:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
@@ -13,8 +13,8 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=dev4c
-epochsStr="  "  ; epochsStr=" --epochs 3000 "  #6h==>N4:1700, N6:2600, N8:3600
+design=dev5d
+epochsStr="  " ; epochsStr=" --epochs 3000 "  #6h==>N4:1700, N6:2600, N8:3600
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}
@@ -48,7 +48,7 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 #wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kE/
+baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kF/
 wrkDir=${baseDir}/${jobId}
 
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 

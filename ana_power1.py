@@ -6,7 +6,7 @@
 import sys,os
 from toolbox.Util_H5io3 import  read3_data_hdf5
 from toolbox.Util_IOfunc import write_yaml
-from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy
+from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy, median_conf_V, median_conf_1D
 
 import numpy as np
 import argparse,os
@@ -14,7 +14,9 @@ import scipy.stats as stats
 from pprint import pprint
 
 from  scipy import signal
-from calib_power import median_conf_V
+
+
+PLOT={'density':1, 'fft':1, 'integral':1}
 
 #...!...!..................
 def get_parser():
@@ -25,7 +27,7 @@ def get_parser():
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kE/',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/',help='data location w/o expName')
  
     args = parser.parse_args()
     if args.expName!=None:
@@ -67,8 +69,8 @@ def do_stats(Y):
     Yavr=np.mean(Y,axis=0)
     Ystd=np.std(Y,axis=0)
     print('M:Ymed',Ymed.shape,Yavr.shape)
-    # smooth it
-    for i in range(3):
+    
+    for i in range(3): # smooth it
         ##1print('Ymed-',i,Ymed)
         Ymed[i]=signal.savgol_filter(Ymed[i], window_length=11, polyorder=2, deriv=0)
     Yavr=signal.savgol_filter(Yavr, window_length=11, polyorder=2, deriv=0)
@@ -79,9 +81,11 @@ def do_stats(Y):
 #...!...!..................
 def plot_stats(ax,X,Y,Ymed,Yavr=None,Ystd=None):
 
-    N=min(30,nSamp)
+    N=min(40,nSamp)
     for i in range(N):
-        ax.step(X,Y[i], linewidth=1. ) # individual distributions
+        # smooth it
+        Ys=signal.savgol_filter(Y[i], window_length=5, polyorder=1, deriv=0)
+        ax.step(X,Ys, linewidth=1. ) # individual distributions
 
     if 1:
         ax.plot(X,Ymed[0],linewidth=3,color='k',linestyle='--',label='median')
@@ -99,6 +103,41 @@ def plot_stats(ax,X,Y,Ymed,Yavr=None,Ystd=None):
     ax.grid()
     ax.set_ylim(0.4,1.6)
 
+#...!...!..................
+def plot_integrals(ax,HR,SR,tit):
+    sum1=HR.shape[1]**2 
+    assert str(HR.shape)==str(SR.shape)
+    msum_hr=np.sum(HR,axis=(1,2))-sum1
+    #print('ss',msum_hr.shape,msum_hr)
+    msum_sr=np.sum(SR,axis=(1,2))-sum1
+    #print('ss2',msum_sr.shape,msum_sr,sum1)
+    rsum=msum_sr/msum_hr
+    #print('ss3',rsum)
+
+    ncol,nrow=1,2; 
+    ax=plt.subplot(nrow,ncol,1)
+    binsX=50
+    ax.hist(msum_sr, bins=binsX,label='SR',color='r') 
+    ax.hist(msum_hr, histtype='step', bins=binsX,label='HR',color='k') 
+
+    ax.grid()
+    ax.set(title=tit, ylabel='images', xlabel='integral (mass)')
+    ax.legend(loc='best')
+
+    ax=plt.subplot(nrow,ncol,2)
+    ax.hist(rsum, bins=binsX)
+    ax.grid()
+    ax.set( ylabel='images', xlabel='SR/HR integral mass')
+    med,mstd,pstd=median_conf_1D(rsum)
+    
+    txt='median %.3f \nstd [ %.3f, %.3f ]'%(med,mstd,pstd)
+    print('txt',txt)
+    ax.text(0.1,0.8,txt,transform=ax.transAxes,color='b')
+    ax.axvline(med,linewidth=1., color='k')
+    ax.axvline(med+mstd,linewidth=1., linestyle='--', color='k')
+    ax.axvline(med+pstd,linewidth=1., linestyle='--', color='k')
+
+    
 #=================================
 #=================================
 #  M A I N 
@@ -124,7 +163,7 @@ if __name__ == "__main__":
     
     space_step=expMD['field2d']['hr']['space_step']  # the same for SR
     nSamp=HR.shape[0]
-    #nSamp=41
+
     R=[];P=[]
     for i in range(nSamp):
         # ... compute density
@@ -149,12 +188,13 @@ if __name__ == "__main__":
     
     # - - - - - Plotting - - - - - 
     plDD={}
-    ncol,nrow=2,1; figId=6
+
     tagN='%s-%s'%(args.expName,args.genSol)
     #tagN=args.genSol
     
-    plt.figure(figId,facecolor='white', figsize=(12,6))
-    if 1:  # - - - -  density
+    if PLOT['density']:  # - - - -  density
+        ncol,nrow=2,1; figId=6
+        plt.figure(figId,facecolor='white', figsize=(13,6))    
         ax=plt.subplot(nrow,ncol,1)
         plot_stats(ax,rphys,R,Rmed,Ravr,Rstd)
         tit='%s,  relative Density ,    nSamp=%d'%(tagN,nSamp)
@@ -163,11 +203,19 @@ if __name__ == "__main__":
         #print('Rmed',Rmed)
         #print('Ravr',Ravr)
     
-    if 1:  # - - - -  power 
-        ax=plt.subplot(nrow,ncol,2)
-        plot_stats(ax,kidx,P,Pmed,Pavr,Pstd)
-        tit='%s,  relative Power Spectrum'%(tagN)
-        ax.set(title=tit, xlabel='wavenumber index',ylabel=' P(k)SR / P(k)HR' )
+        if PLOT['fft']:  # - - - -  power 
+            ax=plt.subplot(nrow,ncol,2)
+            plot_stats(ax,kidx,P,Pmed,Pavr,Pstd)
+            tit='%s,  relative Power Spectrum'%(tagN)
+            ax.set(title=tit, xlabel='wavenumber index',ylabel=' P(k)SR / P(k)HR' )
 
-    save_fig(figId,ext=tagN)
+        save_fig(figId,ext=tagN)
+
+    if PLOT['integral']:  # - - - -
+        figId=7
+        plt.figure(figId,facecolor='white', figsize=(4,6))
+        tit='%s, nSamp=%d'%(tagN,nSamp)        
+        plot_integrals(plt,HR,SR,tit)
+        save_fig(figId,ext=tagN)
+    
     plt.show()

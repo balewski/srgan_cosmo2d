@@ -22,7 +22,7 @@ def prep_fieldMD(inpMD,trainPar):
     return outMD
 
 #...!...!..................
-def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=100,pad1=True): # ln_field1=ln(filed+1)  
+def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=150,pad1=True): # ln_field1=ln(filed+1)  
     #print('rho2D: ln_field1',ln_field1.shape)
     binsX=np.linspace(0.,maxY,nbin,endpoint=False)
     y, x= np.histogram(ln_field1, bins=binsX)  # will flatten input array
@@ -127,3 +127,29 @@ def rebin_WHC(cube,nReb):  # shape: WHC
     return E
 
 #...!...!....................
+#...!...!..................
+def median_conf_1D(data,p=0.68):
+    # returns : m, m-std, m+std
+    assert data.ndim==1
+    data = np.sort(data)
+    N = data.shape[0]
+    delN=int(N*p)
+    lowCount=(N-delN)//2
+    upCount =(N+delN)//2
+    #print('MED:idx:', lowCount, upCount, N)
+    #print('data sorted', data)
+    med=data[N // 2]
+    return  med,data[lowCount]-med, data[upCount]-med
+
+#...!...!..................
+def median_conf_V(data,p=0.68):  # vectorized version
+    # computes median vs. axis=0, independent sorting of every 'other' bin
+    # returns : axis=0: m, m-std, m+std; other axis 'as-is'
+    sdata=np.sort(data,axis=0)
+    N = data.shape[0]
+    delN=int(N*p)
+    lowCount=(N-delN)//2
+    upCount =(N+delN)//2
+    #print('MED:idx:', lowCount, upCount, N)
+    out=[sdata[N // 2],sdata[lowCount], sdata[upCount]]
+    return  np.array(out)
