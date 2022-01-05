@@ -54,7 +54,7 @@ checkpoint_interval/epochs: 50
 pred_dump_interval/epochs: 100  # 0=OFF 
 
 train_conf:
-  adv_warmup_epochs: 1
+  adv_warmup_epochs: 30 
   PG_LR: { init: 1.e-4}	
 
   # Train epochs.
