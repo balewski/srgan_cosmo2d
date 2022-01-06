@@ -2,7 +2,7 @@
 #BSUB -P AST153  # Peter
 #-BSUB -W 00:30
 #BSUB -W 2:00
-#BSUB -nnodes 14
+#BSUB -nnodes 30
 #BSUB -J lsf-sr
 #BSUB -alloc_flags "nvme smt4"
 # - - - - - End LSF directives and begin shell commands
@@ -12,9 +12,9 @@
 
 nprocspn=6  # 6 is correct, 1 works as well for testing
 
-design=dev4
+design=dev5e
 
-epochsStr="  "  ; epochsStr=" --epochs 1400 "
+epochsStr="  "  ; epochsStr=" --epochs 2100 "
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 #determine number of nodes and total procs
@@ -45,7 +45,6 @@ export OMP_NUM_THREADS=1
 export NCCL_DEBUG=INFO
 
 echo "S: nprocs=$nprocs  nnodes=$nnodes "
-
 
 export CMD=" python -u   train_dist.py    --facility summit   --design $design --basePath $baseDir  --expName $jobId  $epochsStr $LRfactStr "
 
@@ -90,10 +89,10 @@ date
 
 echo 'S:done' 
 
-# bsub  batchSummit.lsf
 
 # notes for job array
 # bsub -J 'lsf-pitch[11-14]' batchTrainOntra4.lsf
+# bsub batchSummit.lsf
 # bkill 520324[11]
 # bjobs
 

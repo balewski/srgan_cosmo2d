@@ -40,9 +40,22 @@ cd  ~/prje/tmp_NyxHydro4kF
  tensorboard  --port 9800 --logdir=exp03
 
 ssh summit-tb
-cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/
 module load open-ce/1.1.3-py38-0
  tensorboard  --port 9700 --logdir=1645832
+
+PM -N8:
+INFO - T:rank 0 of 32, data loaders initialized
+INFO - T:train-data: 5 steps, localBS=16, globalBS=512
+INFO - T:valid-data: 2 steps
+
+
+Summit -N10
+INFO - T:rank 0 of 60, data loaders initialized
+INFO - T:train-data: 7 steps, localBS=6, globalBS=360
+INFO - T:valid-data: 3 steps
+ 
+
 
 
 '''

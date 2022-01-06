@@ -152,7 +152,7 @@ class Trainer(TBSwriter):
         esCf=trCf['early_stop_discr']
         self.earlyStopRing=RingAverageCheck(
             func= lambda avr,std: avr+std < esCf['discr_G_thres'],
-            numCell=esCf['ring_size/epochs'],initVal=0.5)  # init at large values to not trip during filling of the ring
+            numCell=esCf['ring_size/epochs'],initVal=0.2)  # init at large values to not trip during filling of the ring
         
         if trCf['resume']:
             print("Resuming...")
@@ -509,7 +509,7 @@ class Trainer(TBSwriter):
 
             # Perceptual_loss= weighted sum:  pixel + content +  adversarial + power_spect
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
-            content_loss =  percAtten *trCf['content_weight'] *self.content_criterion(sr, hr)
+            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hr)
             pixel_loss  =  percAtten *trCf['pixel_weight'] *self.pixel_criterion(sr, hr)#.detach())
 
             # convert from log(mass+1 ) --> mass+1, dim=[BS,1,512,512]
