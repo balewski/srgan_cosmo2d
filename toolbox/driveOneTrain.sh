@@ -9,16 +9,18 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     cat /etc/*release |grep PRETTY_NAME
     free -g
     echo D: num-cpus:`nproc --all`
-    nvidia-smi --list-gpus
+    #nvidia-smi --list-gpus
+    #nvcc --version  # CUDA version
+    #echo cudann version: `cat /usr/include/cudnn_version.h |grep "e CUDNN_MAJOR" -A 2`
+    rocm-smi --showid   # AMD
     python -V
-    nvcc --version  # CUDA version
-    echo cudann version: `cat /usr/include/cudnn_version.h |grep "e CUDNN_MAJOR" -A 2`
     python -c 'import torch; print("D: pytorch:",torch.__version__)'
 
     echo D: survey-end
     #nvidia-smi -l 5 >&L.smi_${SLURM_JOBID} &
 fi
-if [ ${SLURM_LOCALID} -eq 0 ] ; then
+
+if [ ${SLURM_LOCALID} -eq -1 ] ; then
     echo -n "D:`hostname` rank=${SLURM_PROCID}  check ECC  on device :"
     nvidia-smi --query-gpu=ecc.errors.uncorrected.volatile.device_memory --format=csv,noheader
 else

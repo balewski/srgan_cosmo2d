@@ -80,7 +80,7 @@ def get_parser():
   parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')  
+  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter','crusher'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
 
@@ -139,6 +139,8 @@ if __name__ == '__main__':
       for arg in vars(args):  logging.info('M:arg %s:%s'%(arg, str(getattr(args, arg))))
 
     blob=read_yaml( args.design+'.hpar.yaml',verb=params['verb'], logger=True)
+    # hack
+    if args.facility=='crusher': args.facility='summit'
     facCf=blob.pop('facility_conf')[args.facility]
     blob.pop('Defaults')
     params.update(blob)
