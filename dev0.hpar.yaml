@@ -1,3 +1,4 @@
+myId: dev0-test
 Defaults:
   # note, CFS-based location will run slower vs. SCRATCH
   cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kF/
@@ -9,24 +10,20 @@ facility_conf:
   perlmutter:
     base_path:  *CFS_OUT
     data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
-    G_LR: {decay/epochs: 3, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 6, gamma: 0.6, init: 4.e-5 }
-    batch_size: 16   #for A100
-    D_num_fc_layer: 4
+    G_LR: { init: 5.e-5, decay/epochs: 8,  gamma: 0.5, warmup/epochs: 2 }	
+    D_LR: { init: 3.e-5, decay/epochs: 12, gamma: 0.2, warmup/epochs: 4 }
+    batch_size: 32   #for A100
     
   summit:
     base_path:  *AST153_WORLD
     data_path:  *AST153_PROJ
-    G_LR: {decay/epochs: 100, gamma: 0.4, init: 6.e-5}	
-    D_LR: {decay/epochs: 100, gamma: 0.6, init: 2.e-6 }
-    D_num_fc_layer: 3 # is small for V100	
+    G_LR: {decay/epochs: 8, gamma: 0.4, init: 6.e-5}	
+    D_LR: {decay/epochs: 12, gamma: 0.6, init: 2.e-6 }
     batch_size: 6
 
 
-myId: dev4-dual
-
 # optional, reduces training samples
-max_glob_samples_per_epoch: 256  # do 1400 or 256
+max_glob_samples_per_epoch: 256  # do 1400 or 256=BS32
 hr_size: 512
 upscale_factor: 4
 num_inp_chan: 1  # grey images
@@ -39,13 +36,31 @@ model_conf:
   comment: D+G models taken from  Lornatang Liu Changyu, https://github.com/Lornatang/SRGAN-PyTorch
   tb_model_graph: null # D,G, or null
   D:
-    fc_layers: null
     print_summary: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
+    conv_block: # CNN params
+      filter: [ 32,32, 64,64, 128,128, 256,256, 512, 512 ]
+      kernel: [ 3,3,   3,3,  3,3,     3,3,     3,3   ]
+      bn:     [ 0,1,   1,1,  1,1,     1,1,     1,1   ]
+      stride: [ 1,2,   1,2,  1,2,     2,2,     2,2   ] 
+    fc_block: # w/o last layer
+      dims: [  512, 512, 256, 128 ]	
+      dropFrac: 0.30
+  Dorg:
+    print_summary: 2  # 0=off, 1=layers, 2=torchsummary, 3=both
+    conv_block: # CNN params
+      filter: [ 64,64, 128,128, 256,256, 512, 512 ]
+      kernel: [ 3,3,   3,3,     3,3,     3,3   ]
+      bn:     [ 0,1,   1,1,     1,1,     1,1   ]
+      stride: [ 1,2,   1,2,     1,2,     1,2   ] 
+    fc_block: # w/o last layer
+      dims: [ 1024, 512, 512, 256 ]	
+      dropFrac: 0.30
   G:
-    print_summary: 0  # see D for explanation
-    is_empty: null
-
-
+    print_summary: 2  # see D for explanation
+    cnn_one_chan: 64
+    num_resi_conv: 16
+    num_upsamp: 2  # related to zoom-factor?
+     
 num_cpu_workers: 4
 opt_pytorch: {autotune: true, detect_anomaly: true, zerograd: true}
 
@@ -54,17 +69,14 @@ checkpoint_interval/epochs: 50
 pred_dump_interval/epochs: 100  # 0=OFF 
 
 train_conf:
-  adv_warmup/epochs: 1
-  perc_warmup/epochs: 5  # attenuates perceptual loss
-  early_stop_discr:
-    ring_size/epochs: 4
-    discr_G_thres: 0.02
-
-  PG_LR: { init: 1.e-4}	
-
   # Train epochs.
   pre_epochs:   5   #  generator training phase.
-  epochs:       10   #  adversarial training phase.
+  adv_epochs:   20   #  adversarial training phase.
+
+  perc_warmup/epochs: 5  # attenuates perceptual loss
+  early_stop_discr: { ring_size/epochs: 4, discr_G_thres: -0.02 }
+
+  PG_LR: { init: 1.e-4}	
 
   # Perceptual G-loss function weights:
   pixel_weight: 0.8

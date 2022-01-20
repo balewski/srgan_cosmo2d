@@ -1,6 +1,28 @@
 import torch
 import torch.fft # needed by pytorch 1.7
 
+
+#...!...!..................
+def custom_LR_scheduleB(epoch,opt,lrCf,maxEpoch):
+    # linear warmup and linear decay
+    if epoch<lrCf['warmup/epochs']:        
+        opt.param_groups[0]['lr']=lrCf['init']*float(epoch+1.)/lrCf['warmup/epochs']
+        return
+    if epoch>lrCf['decay/epochs']:
+        totEpoch=maxEpoch - lrCf['decay/epochs']
+        xEpoch=epoch - lrCf['decay/epochs']
+        opt.param_groups[0]['lr']=lrCf['init']*(1.-(1-lrCf['gamma'])*xEpoch/totEpoch )
+        return
+        
+        
+#...!...!..................
+def integral_loss_func(field1,field2):
+    delta=field1-field2
+    msum=torch.sum(delta,(2,3))
+    msum_loss= torch.log(torch.linalg.norm(msum))
+    return msum_loss
+
+
 #...!...!..................
 def torchD_to_floatD(inp):
     out={}

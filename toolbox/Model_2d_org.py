@@ -1,3 +1,25 @@
+'''  equivalent config
+
+  D:
+    print_summary: 2  # 0=off, 1=layers, 2=torchsummary, 3=both
+    conv_block: # CNN params
+      filter: [ 64,64, 128,128, 256,256, 512, 512 ]
+      kernel: [ 3,3,   3,3,     3,3,     3,3   ]
+      bn:     [ 0,1,   1,1,     1,1,     1,1   ]
+      stride: [ 1,2,   1,2,     1,2,     1,2   ]
+    fc_block: # w/o last layer
+      dims: [ 1024, 512, 512, 256 ]
+      dropFrac: 0.30
+  G:
+    print_summary: 2  # see D for explanation
+    cnn_one_chan: 64
+    num_resi_conv: 16
+    num_upsamp: 2  # related to zoom-factor?
+
+
+'''
+
+
 # Copyright 2021 Dakewe Biotech Corporation. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -20,8 +42,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 from torch import Tensor
-import numpy as np
-from pprint import pprint
 
 __all__ = [
     "ResidualConvBlock",
@@ -39,7 +59,7 @@ class ResidualConvBlock(nn.Module):
     Args:
         channels (int): Number of channels in the input image.
     """
-#...!...!..................
+
     def __init__(self, channels: int) -> None:
         super(ResidualConvBlock, self).__init__()
         self.rc_block = nn.Sequential(
@@ -49,136 +69,154 @@ class ResidualConvBlock(nn.Module):
             nn.Conv2d(channels, channels, (3, 3), (1, 1), (1, 1), bias=False),
             nn.BatchNorm2d(channels)
         )
-#...!...!..................
+
     def forward(self, x: Tensor) -> Tensor:
         identity = x
+
         out = self.rc_block(x)
         out = out + identity
+
         return out
 
 #............................
 #............................
 #............................
+
 class Discriminator(nn.Module):
-#...!...!..................
     def __init__(self,num_inp_chan,conf, verb=0) -> None:
         super(Discriminator, self).__init__()
-        if verb:
-            print('D_Model conf='); pprint(conf)
-        self.verb=verb
-        num_hr_bins=512 #tmp1
-        reluSlope=0.2
+        self.features = nn.Sequential(
+            # input size. (3) x 96 x 96
+            nn.Conv2d(num_inp_chan, 64, (3, 3), (1, 1), (1, 1), bias=True),
+            nn.LeakyReLU(0.2, True),
+            # state size. (64) x 48 x 48
+            nn.Conv2d(64, 64, (3, 3), (2, 2), (1, 1), bias=False),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(64, 128, (3, 3), (1, 1), (1, 1), bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, True),
+            # state size. (128) x 24 x 24
+            nn.Conv2d(128, 128, (3, 3), (2, 2), (1, 1), bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(128, 256, (3, 3), (1, 1), (1, 1), bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, True),
+            # state size. (256) x 12 x 12
+            nn.Conv2d(256, 256, (3, 3), (2, 2), (1, 1), bias=False),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.2, True),
+            nn.Conv2d(256, 512, (3, 3), (1, 1), (1, 1), bias=False),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, True),
+            # state size. (512) x 6 x 6
+            nn.Conv2d(512, 512, (3, 3), (2, 2), (1, 1), bias=False),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.2, True)
+        )
+
+        if conf['fc_layers']==3:  # for V100
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(524288 , 512),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        elif conf['fc_layers']==4: # for A100 but smaller
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.3),
+                nn.Linear(524288 , 1024),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(1024, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.3),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        elif conf['fc_layers']==5: # for A100 big
+            self.classifier = nn.Sequential(
+                nn.Dropout(p=0.2),
+                nn.Linear(524288 , 1024),# 524288--> image_size=512, 4 upsampl
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(1024, 1024),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(1024, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 512),
+                nn.LeakyReLU(0.2, True), nn.Dropout(p=0.2),
+                nn.Linear(512, 256),
+                nn.LeakyReLU(0.2, True), nn.Linear(256, 1),
+                nn.Sigmoid()
+            )
+        else:
+            assert 1==2, "bad D FC layer count:%s"%conf['fc_layers']
         
-        self.inp_shape=(num_inp_chan,num_hr_bins,num_hr_bins)
-
-        # .....  CNN layers
-        hpar1=conf['conv_block']
-        self.cnn_block = nn.ModuleList()
-        inp_chan=num_inp_chan
-        for out_chan,cnnker,cnnbn,cnnstr in zip(hpar1['filter'],hpar1['kernel'],hpar1['bn'],hpar1['stride']):
-            # nn.Conv2d( in_channels,out_channels,kernel_size,stride=1,padding=0
-            #torch.nn.BatchNorm2d(num_features,
-            doBias=not cnnbn
-            self.cnn_block.append( nn.Conv2d(inp_chan, out_chan, cnnker, stride=cnnstr,padding=1, bias=doBias))
-            if cnnbn: self.cnn_block.append( nn.BatchNorm2d(out_chan))
-            self.cnn_block.append( nn.LeakyReLU(reluSlope, True))
-            inp_chan=out_chan
-
-        ''' Automatically compute the size of the output of CNN+Pool block,  
-        needed as input to the first FC layer 
-        '''
-
-        with torch.no_grad():
-            # process 2 fake examples through the CNN portion of model
-            x1=torch.tensor(np.zeros((2,)+self.inp_shape), dtype=torch.float32)
-            y1=self.forwardCnnOnly(x1)
-            self.flat_dim=np.prod(y1.shape[1:])
-            if self.verb>2: print('D-net flat_dim=',self.flat_dim)
-        
-        # .... add FC  layers
-        hpar2=conf['fc_block']
-        self.fc_block  = nn.ModuleList()
-        inp_dim=self.flat_dim
-                
-        for i,dim in enumerate(hpar2['dims']):
-            self.fc_block.append( nn.Dropout(p= hpar2['dropFrac']))            
-            self.fc_block.append( nn.Linear(inp_dim,dim))
-            self.fc_block.append( nn.LeakyReLU(reluSlope,True))
-            inp_dim=dim
-
-        self.fc_block.append( nn.Linear(inp_dim,1))
-        self.fc_block.append(nn.Sigmoid())  # the decision
-#...!...!..................
-    def forwardCnnOnly(self, x):
-        #X flatten 2D image 
-        #x=x.view((-1,)+self.inp_shape )
-
-        if self.verb>2: print('J: inp2cnn',x.shape,x.dtype)
-        for i,lyr in enumerate(self.cnn_block):
-            if self.verb>2: print('Jcnn-lyr: ',i,lyr)
-            x=lyr(x)
-            if self.verb>2: print('Jcnn: out ',i,x.shape)
-        return x
-#...!...!..................      
+      
     def forward(self, x: Tensor) -> Tensor:
-        if self.verb>2: print('DFa:',x.shape,x.dtype)
-        x=self.forwardCnnOnly(x)        
-        x = torch.flatten(x, 1)
-        if self.verb>2: print('DFb:',x.shape)
-        for i,lyr in enumerate(self.fc_block):
-            x=lyr(x)
-            if self.verb>2: print('DFc: ',i,x.shape)
-        if self.verb>2: print('DF y',x.shape)        
-        return x
-    
+        #print('DF:a',x.shape,x.dtype)
+        out = self.features(x)
+        out = torch.flatten(out, 1)
+        #print('ooo',out.shape)
+        out = self.classifier(out)
+        
+        return out
 #...!...!..................
     def short_summary(self):
         numLayer=sum(1 for p in self.parameters())
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}
 
+#............................
+#............................
+#............................
 
-#............................
-#............................
-#............................
 class Generator(nn.Module):
-    def __init__(self,num_inp_chan,conf, verb=0) -> None:
+    def __init__(self,num_inp_chan, verb=0) -> None:
         super(Generator, self).__init__()
-        if verb:
-            print('G_Model conf='); pprint(conf)
-        self.verb=verb
-
-        # First conv layer.        
+        # First conv layer.
+        
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(num_inp_chan, conf['cnn_one_chan'], (9, 9), (1, 1), (4, 4)),
+            nn.Conv2d(num_inp_chan, 64, (9, 9), (1, 1), (4, 4)),
             nn.PReLU()
         )
 
         # Features trunk blocks.
         trunk = []
-        for _ in range(conf['num_resi_conv']):
-            trunk.append(ResidualConvBlock(conf['cnn_one_chan']))
+        for _ in range(16):
+            trunk.append(ResidualConvBlock(64))
         self.trunk = nn.Sequential(*trunk)
 
         # Second conv layer.
         self.conv_block2 = nn.Sequential(
-            nn.Conv2d(conf['cnn_one_chan'], conf['cnn_one_chan'], (3, 3), (1, 1), (1, 1), bias=False),
-            nn.BatchNorm2d( conf['cnn_one_chan'])
+            nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1), bias=False),
+            nn.BatchNorm2d(64)
         )
 
         # Upscale conv block.
-        trunk2 = []  ; assert conf['num_upsamp']==2, not_tested
-        upsamp_chan=conf['cnn_one_chan']*2*2  # because: PixelShuffle(2)
-        for _ in range(conf['num_upsamp']):
-            trunk2.append(nn.Conv2d(conf['cnn_one_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
-            trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride1/2
-            trunk2.append(nn.PReLU())
-            
-        self.upsampling = nn.Sequential(*trunk2)
+        self.upsampling = nn.Sequential(
+            nn.Conv2d(64, 256, (3, 3), (1, 1), (1, 1)),
+            nn.PixelShuffle(2),
+            nn.PReLU(),
+            nn.Conv2d(64, 256, (3, 3), (1, 1), (1, 1)),
+            nn.PixelShuffle(2),
+            nn.PReLU()
+            # enable for upscale_factor=8
+            #,nn.Conv2d(64, 256, (3, 3), (1, 1), (1, 1)),
+            #nn.PixelShuffle(2),
+            #nn.PReLU()            
+        )
 
         # Output layer.
+        #self.conv_block3 = nn.Conv2d(64, num_inp_chan, (9, 9), (1, 1), (4, 4))
         self.conv_block3 =  nn.Sequential(
-            nn.Conv2d(conf['cnn_one_chan'], num_inp_chan, (9, 9), (1, 1), (4, 4)),
+            nn.Conv2d(64, num_inp_chan, (9, 9), (1, 1), (4, 4)),
             nn.PReLU()
         )  # to generate only positive values
 
@@ -195,17 +233,15 @@ class Generator(nn.Module):
         out1 = self.conv_block1(x)
         out = self.trunk(out1)
         out2 = self.conv_block2(out)
-        #print('gf2',out1.shape,out2.shape)
         out = out1 + out2
-        
+        #print('gf2',out.shape)
         out = self.upsampling(out)
         out = self.conv_block3(out)
         #print('gf3',out.shape)
         return out
-#...!...!..................
+
     def _initialize_weights(self) -> None:
         for m in self.modules():
-            #print('Gm',m,isinstance(m, nn.Conv2d))
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
@@ -219,8 +255,6 @@ class Generator(nn.Module):
         numLayer=sum(1 for p in self.parameters())
         numParams=sum(p.numel() for p in self.parameters())
         return {'modelWeightCnt':numParams,'trainedLayerCnt':numLayer,'modelClass':self.__class__.__name__}
-
-
 
 #............................
 #............................

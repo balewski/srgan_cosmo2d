@@ -27,17 +27,18 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 2 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2
+srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2
 
 On Summit: salloc, as corigpu, use facility=summitlogin
 
-Production job ??
+Production job 
+srun -n 16 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev7a  --facility perlmutter  --expName exp5a
 
 Display TB
 ssh cori-tb
 cd  ~/prje/tmp_NyxHydro4kF
  module load pytorch
- tensorboard  --port 9800 --logdir=exp03
+ tensorboard --port 9800 --logdir=exp3
 
 ssh summit-tb
 cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/
@@ -56,8 +57,6 @@ INFO - T:train-data: 7 steps, localBS=6, globalBS=360
 INFO - T:valid-data: 3 steps
  
 
-
-
 '''
 
 import sys,os
@@ -70,6 +69,7 @@ import time
 import torch
 import torch.distributed as dist
 from pprint import pprint
+import socket  # for worker name
 
 import argparse
 #...!...!..................
@@ -82,7 +82,7 @@ def get_parser():
 
   parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
-  parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
+  parser.add_argument("-v","--verbosity",type=int,choices=[0,1,2,3], help="increase output verbosity", default=1, dest='verb')
 
   parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
   parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
@@ -104,9 +104,8 @@ if __name__ == '__main__':
       for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     
     os.environ['MASTER_PORT'] = "8886"
-
+    
     params ={}
-    #print('M:facility:',args.facility)
     if args.facility=='summit':
       import subprocess
       get_master = "echo $(cat {} | sort | uniq | grep -v batch | grep -v login | head -1)".format(os.environ['LSB_DJOB_HOSTFILE'])
@@ -121,19 +120,19 @@ if __name__ == '__main__':
       params['local_rank'] = int(os.environ['SLURM_LOCALID'])
 
     params['world_size'] = int(os.environ['WORLD_SIZE'])
-    params['world_rank'] = 0
-    #print('M: ws=', params['world_size'])
+    params['world_rank'] =int(os.environ['RANK'])
+    params['worker_name']=socket.gethostname()
+    params['facility']=args.facility
+    print('M:params',params)
+    if params['world_rank']==0:
+        print('M:python:',sys.version,'torch:',torch.__version__)
     if params['world_size'] > 1:  # multi-GPU training
       torch.cuda.set_device(params['local_rank'])
-      try:
-        dist.init_process_group(backend='nccl', init_method='env://')
-      except:
-        print('NCCL crash, sleep for 2h',flush=True);  time.sleep(2*3600)
-                  
-      params['world_rank'] = dist.get_rank()
-      #print('M:locRank:',params['local_rank'],'rndSeed=',torch.seed())
+      dist.init_process_group(backend='nccl', init_method='env://')
+      assert params['world_rank'] == dist.get_rank()
+      print('M:locRank:',params['local_rank'],'rndSeed=',torch.seed())
     params['verb'] =args.verb * (params['world_rank'] == 0)
-    #print('M: verb=', params['verb'])
+    
     if params['verb']:
       logging.info('M:MASTER_ADDR=%s WORLD_SIZE=%s RANK=%s  pytorch:%s'%(os.environ['MASTER_ADDR'] ,os.environ['WORLD_SIZE'], os.environ['RANK'],torch.__version__ ))
       for arg in vars(args):  logging.info('M:arg %s:%s'%(arg, str(getattr(args, arg))))
@@ -146,11 +145,11 @@ if __name__ == '__main__':
     
     #print('M:params');pprint(params)#tmp
     #... propagate facility dependent config
-    params['facility']=args.facility    
+    
     for x in ["D_LR","G_LR"]: 
         params['train_conf'][x]=facCf[x]
 
-    params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
+    #params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
 
     # refine BS for multi-gpu configuration
     tmp_batch_size=facCf['batch_size']
@@ -176,9 +175,9 @@ if __name__ == '__main__':
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
         params['max_glob_samples_per_epoch']=args.numSamp
     if args.epochs!=None:
-        params['train_conf']['epochs']= args.epochs
+        params['train_conf']['adv_epochs']= args.epochs
     if args.LRfactor!=None:
-        for  x in ["G_LR"]: #,"D_LR"]: 
+        for  x in ["D_LR"]: #,"G_LR"]: 
           params['train_conf'][x]['init']*= args.LRfactor
        
     trainer = Trainer(params)

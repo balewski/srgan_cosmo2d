@@ -114,6 +114,10 @@ def plot_integrals(ax,HR,SR,tit):
     rsum=msum_sr/msum_hr
     #print('ss3',rsum)
 
+    # scale mass
+    msum_hr/=1e6
+    msum_sr/=1e6
+    
     ncol,nrow=1,2; 
     ax=plt.subplot(nrow,ncol,1)
     binsX=50
@@ -121,10 +125,11 @@ def plot_integrals(ax,HR,SR,tit):
     ax.hist(msum_hr, histtype='step', bins=binsX,label='HR',color='k') 
 
     ax.grid()
-    ax.set(title=tit, ylabel='images', xlabel='integral (mass)')
+    ax.set(title=tit, ylabel='images', xlabel='integral (mass*1e6)')
     ax.legend(loc='best')
 
     ax=plt.subplot(nrow,ncol,2)
+    binsX=np.linspace(0.97,1.03,50)
     ax.hist(rsum, bins=binsX)
     ax.grid()
     ax.set( ylabel='images', xlabel='SR/HR integral mass')

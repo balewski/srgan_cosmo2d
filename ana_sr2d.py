@@ -164,6 +164,9 @@ if __name__ == "__main__":
             ax.set_aspect(1.)           
             tit='ln(abs(FFT)+1) %s idx=%d  size=%s'%(kr,args.index,str(img.shape))
             ax.set(title=tit)
+            if i==0:
+                ax.axhline(64,linestyle='--')
+                ax.axvline(64,linestyle='--')
         
         save_fig(figId,ext=ext,png=png)
 

@@ -12,7 +12,7 @@ elif [[   $NERSC_HOST == perlmutter  ]]   ; then
    echo "on Perlmutter" 
    echo $NERSC_HOST  $SHELL
    module load pytorch
-   echo 'PM interactive 1 node:   salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1   '
+   echo 'PM interactive 1 node:   salloc -C gpu -q interactive -t4:00:00 --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4 -N 1   '
 #.........................................................
 elif [[ `hostname -f ` == *olcf* ]]   ; then
  echo "on Summit"
