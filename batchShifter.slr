@@ -13,7 +13,7 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=dev7c
-epochsStr="  " ; epochsStr=" --epochs 4501 " 
+epochsStr="  "  # ; epochsStr=" --epochs 4501 " 
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}
@@ -55,7 +55,8 @@ date
 
 export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
 
-echo CMD=$CMD
+export AGENT=" shifter "
+echo S: CMD=$CMD  AGENT=$AGENT
 
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
@@ -65,7 +66,7 @@ cd  $wrkDir
 echo PWD=`pwd`
 
 echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
-time srun -n $G  shifter  bash  toolbox/driveOneTrain.sh  >& log.train
+time srun -n $G  $AGENT  toolbox/driveOneTrain.sh  >& log.train
 
 sleep 3
 
