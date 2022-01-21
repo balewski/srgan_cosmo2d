@@ -13,7 +13,7 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=dev7c
-epochsStr="  "  # ; epochsStr=" --epochs 4501 " 
+epochsStr="  "  # ; epochsStr=" --epochs 4001 " 
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}

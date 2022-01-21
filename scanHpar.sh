@@ -15,7 +15,7 @@ mkdir  out
 #for lrFact in 0.02 0.05 0.10 0.20 0.50  1.00 2.00  ; do
 #for lrFact in 0.29 0.44 0.67 1.00 1.50 2.30 3.50  ; do
 #for lrFact in  0.69 0.83 1.00 1.20 1.44  0.58  ; do
-for jobId in a b c d ; do
+for jobId in e f g ; do
     #jobId=lrfG${lrFact}
 
     echo

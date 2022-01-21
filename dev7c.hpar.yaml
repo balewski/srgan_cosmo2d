@@ -11,7 +11,7 @@ facility_conf:
     base_path:  *CFS_OUT
     data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
     G_LR: { init: 7.e-5, decay/epochs: 1500, gamma: 0.04, warmup/epochs: 20 }	
-    D_LR: { init: 1.5e-5, decay/epochs: 1500, gamma: 0.04, warmup/epochs: 20 }
+    D_LR: { init: 2.e-5, decay/epochs: 1500, gamma: 0.04, warmup/epochs: 20 }
     batch_size: 16   #for A100
 
   summit:
@@ -43,7 +43,7 @@ model_conf:
       stride: [ 1,2,   1,2,     2,2,     2,2   ]
     fc_block: # w/o last layer
       dims: [ 1024, 512, 512, 256 ]
-      dropFrac: 0.10
+      dropFrac: 0.20
   G:
     print_summary: 0  # see D for explanation
     cnn_one_chan: 64
