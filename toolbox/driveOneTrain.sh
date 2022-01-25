@@ -4,21 +4,29 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     [[ -z "${SHIFTER_RUNTIME}" ]]  &&  echo NOT-in-shifter  || echo in-shifter
     date
     echo D: CMD=$CMD
-    echo D: job=${SLURM_JOBID} `hostname`
+    echo D: job=${SLURM_JOBID} `hostname`  
     echo D: nodes:$SLURM_NODELIST
     cat /etc/*release |grep PRETTY_NAME
     free -g
     echo D: num-cpus:`nproc --all`
-    nvidia-smi --list-gpus
+    if [[ `hostname -f ` == *crusher.olcf* ]]   ; then
+	echo "D: Crusher AMD"
+	rocm-smi --showid   # AMD
+    else 
+	echo "D: NERSC NVIDA"
+	nvidia-smi --list-gpus
+	nvcc --version  # CUDA version
+	echo cudann version: `cat /usr/include/cudnn_version.h |grep "e CUDNN_MAJOR" -A 2`
+    fi
+
     python -V
-    nvcc --version  # CUDA version
-    echo cudann version: `cat /usr/include/cudnn_version.h |grep "e CUDNN_MAJOR" -A 2`
     python -c 'import torch; print("D: pytorch:",torch.__version__)'
 
     echo D: survey-end
     #nvidia-smi -l 5 >&L.smi_${SLURM_JOBID} &
 fi
-if [ ${SLURM_LOCALID} -eq 0 ] ; then
+
+if [ ${SLURM_LOCALID} -eq -1 ] ; then
     echo -n "D:`hostname` rank=${SLURM_PROCID}  check ECC  on device :"
     nvidia-smi --query-gpu=ecc.errors.uncorrected.volatile.device_memory --format=csv,noheader
 else

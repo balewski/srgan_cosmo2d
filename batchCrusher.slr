@@ -1,26 +1,24 @@
 #!/bin/bash -l
-#SBATCH -N6 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH --time=6:00:00  -J srCos2d
-#-SBATCH --time=20:00 
-#SBATCH -C gpu -A nstaff_g
-#SBATCH -q early_science # for early_science, higher priority
-#SBATCH --image=nersc/pytorch:ngc-21.08-v2
-#SBATCH -o out/slurm-%j.out
+#SBATCH -N1 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
+#SBATCH --time=30:00  -J srCos2d
+#SBATCH  -A AST153_crusher
+#SBATCH -q batch
 #-SBATCH  -x cgpu08 # block sick nodes
 # - - - E N D    O F    SLURM    C O M M A N D S
+# salloc -A AST153_crusher -p batch  -t 30:00  -N 1 --x11 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=dev7c
-epochsStr="  "  # ; epochsStr=" --epochs 4001 " 
+design=dev5e
+epochsStr="  " ; epochsStr=" --epochs 3000 "  #6h==>N4:1700, N6:2600, N8:3600
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
 export MASTER_ADDR=`hostname`
 
-echo S: JID=${SLURM_JOBID} MASTER_ADDR=$MASTER_ADDR  MASTER_PORT=${MASTER_PORT}=  G=$G  N=$N 
+echo S: JID=${SLURM_JOBID} MASTER_ADDR=$MASTER_ADDR  MASTER_PORT=$MASTER_PORT  G=$G  N=$N 
 nodeList=$(scontrol show hostname $SLURM_NODELIST)
 echo S:node-list $nodeList
 
@@ -32,7 +30,9 @@ env |grep SRCOS2D
 if [[  $NERSC_HOST == cori ]]   ; then
     echo "S:on Cori-GPU"
     facility=corigpu
-
+elif [[ `hostname -f ` == *crusher.olcf* ]]   ; then
+    echo "on Crusher"
+    facility=crusher
 elif [[  $NERSC_HOST == perlmutter ]]   ; then
     echo "S:on Perlmutter"
     facility=perlmutter
@@ -47,16 +47,15 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
 fi
 
 #wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kF/
+baseDir=/gpfs/alpine/ast153/scratch/balewski/tmp_NyxHydro4kF/
 wrkDir=${baseDir}/${jobId}
 
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
+export CMD=" python -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
 
-export AGENT=" shifter "
-echo S: CMD=$CMD  AGENT=$AGENT
+echo CMD=$CMD
 
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
@@ -64,9 +63,11 @@ mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
 echo PWD=`pwd`
+export MPLCONFIGDIR=$wrkDir
+SIMG=/gpfs/alpine/ast153/scratch/balewski/crusher_amd64/rocm-torch_v1.sif
 
 echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
-time srun -n $G  $AGENT  toolbox/driveOneTrain.sh  >& log.train
+time srun -n $G  singularity exec  $SIMG toolbox/driveOneTrain.sh   >& log.train
 
 sleep 3
 
