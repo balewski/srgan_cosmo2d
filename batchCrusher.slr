@@ -52,10 +52,12 @@ echo S:PWD=`pwd`
 # see also https://pytorch.org/docs/stable/hub.html
 export TORCH_HOME=$baseDir  # for storing VGG model
 vggPath=${TORCH_HOME}/hub/checkpoints
+mkdir -p ${vggPath}
 if [ ! -f ${vggPath}/vgg19-dcbb9e9d.pth ] ; then
     echo S: download VGG model to ${vggPath}
     cd ${vggPath}
     pwd
+    # it hangs here on Crusher worker node --> do it by hand form login node
     wget https://download.pytorch.org/models/vgg19-dcbb9e9d.pth
     ls -l
     cd -
