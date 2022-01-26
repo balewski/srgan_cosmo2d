@@ -1,4 +1,7 @@
 #!/bin/bash 
+export HOME=`pwd`  # to make MIopen happy, only Crusher needs it for
+mkdir -p .config # to make MIopen happy
+#  MIOpen Error: boost::filesystem::create_directories: Read-only file system: "/ccs/home/balewski/.config"
 
 if [ ${SLURM_PROCID} -eq 0 ] ; then
     [[ -z "${SHIFTER_RUNTIME}" ]]  &&  echo NOT-in-shifter  || echo in-shifter
@@ -10,7 +13,7 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     free -g
     echo D: num-cpus:`nproc --all`
     if [[ `hostname -f ` == *crusher.olcf* ]]   ; then
-	echo "D: Crusher AMD"
+	echo "D: Crusher AMD, HOME="$HOME
 	rocm-smi --showid   # AMD
     else 
 	echo "D: NERSC NVIDA"

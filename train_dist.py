@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 This code has been derived from: Lornatang Liu Changyu
 https://github.com/Lornatang/SRGAN-PyTorch
@@ -119,10 +119,15 @@ if __name__ == '__main__':
       os.environ['WORLD_SIZE'] = os.environ['SLURM_NTASKS']
       params['local_rank'] = int(os.environ['SLURM_LOCALID'])
 
+    params['master_name']=os.environ['MASTER_ADDR']
     params['world_size'] = int(os.environ['WORLD_SIZE'])
     params['world_rank'] =int(os.environ['RANK'])
     params['worker_name']=socket.gethostname()
     params['facility']=args.facility
+    if 'crusher' in params['master_name']:
+      params['local_rank'] =0
+
+    
     print('M:params',params)
     if params['world_rank']==0:
         print('M:python:',sys.version,'torch:',torch.__version__)
