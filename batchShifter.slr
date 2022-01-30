@@ -1,11 +1,10 @@
 #!/bin/bash -l
 #SBATCH -N6 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
 #SBATCH --time=6:00:00  -J srCos2d
-#-SBATCH --time=20:00 
+#-SBATCH --time=30:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
-#SBATCH -o out/slurm-%j.out
 #-SBATCH  -x cgpu08 # block sick nodes
 # - - - E N D    O F    SLURM    C O M M A N D S
 
@@ -13,8 +12,6 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=dev7c
-epochsStr="  "  # ; epochsStr=" --epochs 4001 " 
-#LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
@@ -25,17 +22,19 @@ nodeList=$(scontrol show hostname $SLURM_NODELIST)
 echo S:node-list $nodeList
 
 # grab some variables from environment - if defined
-[[ -z "${SRCOS2D_LR_FACT}" ]] && LRfactStr="  " || LRfactStr=" --LRfactor  ${SRCOS2D_LR_FACT} "
-[[ -z "${SRCOS2D_JOBID}" ]] && jobId=$SLURM_JOBID || jobId="${design}_${SRCOS2D_JOBID}"
+[[ -z "${SRCOS2D_OTHER_PAR}" ]] && otherParStr="  " || otherParStr=" ${SRCOS2D_OTHER_PAR} "
+[[ -z "${SRCOS2D_WRK_SUFIX}" ]] && wrkSufix=$SLURM_JOBID || wrkSufix="${SRCOS2D_WRK_SUFIX}"
 env |grep SRCOS2D
 
 if [[  $NERSC_HOST == cori ]]   ; then
     echo "S:on Cori-GPU"
     facility=corigpu
-
+    ENGINE=" shifter "
 elif [[  $NERSC_HOST == perlmutter ]]   ; then
     echo "S:on Perlmutter"
     facility=perlmutter
+    module unload pytorch
+    ENGINE=" shifter "
     # bash -c 'printf "#include <stdio.h>\nint main() {  cudaFree(0);printf(\"cudaFree-done\"); }" > dummy.cu && nvcc -o dummy.exe dummy.cu'
     #  opening and closing a GPU context on each node to reset GPUs
     time srun -n$N -l --ntasks-per-node=1 toolbox/dummy.exe
@@ -43,34 +42,35 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
     #due to the NIC topology NCCL doesn’t automatically use Direct RDMA  which controlls  the NICs for multi-node
     # https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html#nccl-net-gdr-level-formerly-nccl-ib-gdr-level
 
-    export NCCL_NET_GDR_LEVEL=PHB  #on Direct RDMA
+    export NCCL_NET_GDR_LEVEL=PHB  #enable Direct RDMA
+    #export NCCL_NET_GDR_LEVEL=0 #off Direct RDMA 
 fi
 
-#wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kF/
-wrkDir=${baseDir}/${jobId}
+baseDir=$SCRATCH/tmp_NyxHydro4kG/
+#baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kF/
+wrkDir=${baseDir}/$wrkSufix
 
-echo "S: jobId=$jobId  wrkDir=$wrkDir" 
+echo "S: jobId=$SLURM_JOBID  wrkSufix=$wrkSufix  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
+export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName  $SLURM_JOBID   $otherParStr "
 
-export AGENT=" shifter "
-echo S: CMD=$CMD  AGENT=$AGENT
 
-codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
+echo S: CMD=$CMD  ENGINE=$ENGINE
+
+codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  *.hpar.yaml  "
 
 mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
-echo PWD=`pwd`
+echo S:PWD=`pwd`
 
-echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
-time srun -n $G  $AGENT  toolbox/driveOneTrain.sh  >& log.train
+echo "S:starting   srgan_cosmo2 " `date` " wrkDir= $wrkDir"
+time srun -n $G  $ENGINE  toolbox/driveOneTrain.sh  >& log.train
 
 sleep 3
 
 echo S:done train
-time srun -n1 shifter   ./predict.py --basePath $baseDir --expName $jobId --genSol last  >& log.predict
+time srun -n1  $ENGINE   ./predict.py --basePath $baseDir --expName $SLURM_JOBID --genSol last  >& log.predict
 echo S:done predict
 date
