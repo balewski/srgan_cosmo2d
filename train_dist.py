@@ -34,11 +34,13 @@ On Summit: salloc, as corigpu, use facility=summitlogin
 Production job 
 srun -n 16 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev7a  --facility perlmutter  --expName exp5a
 
-Display TB
-ssh cori-tb
-cd  ~/prje/tmp_NyxHydro4kF
+***** Display TB *****
+ssh pm-tb
+cd  $SCRATCH/tmp_NyxHydro4kG/
  module load pytorch
- tensorboard --port 9800 --logdir=exp3
+ tensorboard --port 9600 --logdir=N4_dev7d_z
+
+/pscratch/sd/b/balewski/tmp_NyxHydro4kG
 
 ssh summit-tb
 cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/

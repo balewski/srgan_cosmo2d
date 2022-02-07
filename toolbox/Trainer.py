@@ -13,7 +13,7 @@ from toolbox.Model_2d import Generator, Discriminator, ContentLoss
 from toolbox.Util_Torch import all_reduce_dict, compute_fft, transf_img2field_torch, torchD_to_floatD,integral_loss_func
 from toolbox.Util_Torch import custom_LR_scheduleB as custom_LR_schedule
 #from toolbox.tmp_figures import ( plt_slices, plt_power )
-from toolbox.tmp_TBSwriter import TBSwriter
+from toolbox.TBSwriter import TBSwriter
 from toolbox.RingAverageCheck import RingAverageCheck
 
 import torch.optim as optim
@@ -343,7 +343,7 @@ class Trainer(TBSwriter):
 
                 rec3.update({'val:20':kfac*locValSamp/Tval/20.})  # val glob samp/msec
                 self.TBSwriter.add_scalars("Train_adv/speed_global (samp:sec)",rec3 , epoch)
-                recLab='Train_adv/epoch_time (sec)'
+                recLab='Train_adv/epoch_time (sec), '+self.params['facility']
                 self.TBSwriter.add_scalar(recLab, Ttot,epoch)
 
                 
@@ -568,7 +568,7 @@ class Trainer(TBSwriter):
             self.TBSwriter.add_scalars("Train_adv/g_crit", rec, epoch)
 
             rec={x:cnt[x] for x in ['d_real','d_fake'] }
-            recLab='Train_adv/d_decision,   %d ranks, %s, %s'%(self.params['world_size'],self.params['facility'],self.params['design'])
+            recLab='Train_adv/d_decision,   %d ranks, %s'%(self.params['world_size'],self.params['design'])
             self.TBSwriter.add_scalars(recLab, rec, epoch)
         return cnt
             
