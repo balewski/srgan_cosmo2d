@@ -143,8 +143,6 @@ if __name__ == '__main__':
       for arg in vars(args):  logging.info('M:arg %s:%s'%(arg, str(getattr(args, arg))))
 
     blob=read_yaml( args.design+'.hpar.yaml',verb=params['verb'], logger=True)
-    # hack
-    if args.facility=='crusher': args.facility='summit'
     facCf=blob.pop('facility_conf')[args.facility]
     blob.pop('Defaults')
     params.update(blob)

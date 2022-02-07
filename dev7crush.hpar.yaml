@@ -20,6 +20,13 @@ facility_conf:
     G_LR: {decay/epochs: 900, gamma: 0.4, init: 4.e-5}	
     D_LR: {decay/epochs: 900, gamma: 0.4, init: 6.e-6 }
     batch_size: 6
+    
+  crusher:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    G_LR: { init: 7.e-5, decay/epochs: 1500, gamma: 0.04, warmup/epochs: 20 }	
+    D_LR: { init: 2.e-5, decay/epochs: 1500, gamma: 0.04, warmup/epochs: 20 }
+    batch_size: 16   #for MI250X
 
 # optional, reduces training samples
 #max_glob_samples_per_epoch: 256  # do 1400 or 256
@@ -59,8 +66,8 @@ pred_dump_interval/epochs: 100  # 0=OFF
 
 train_conf:
   # Train epochs.
-  pre_epochs:   50   #  generator training phase.
-  adv_epochs:   2601   #  adversarial training phase.
+  pre_epochs:   10   #  generator training phase.
+  adv_epochs:   26   #  adversarial training phase.
   PG_LR: { init: 1.e-4}
     
   perc_warmup/epochs: 150  # attenuates perceptual loss

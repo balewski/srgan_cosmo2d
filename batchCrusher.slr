@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#SBATCH -N1 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
+#SBATCH -N2 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
 #SBATCH --time=30:00  -J srCos2d
 #SBATCH  -A AST153_crusher
 #SBATCH -p batch
@@ -8,10 +8,10 @@
 # salloc -A AST153_crusher -p batch  -t 30:00  -N 1 --x11 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
-nprocspn=2  # special case for partial use of full node
+#nprocspn=2  # special case for partial use of full node
 
-design=dev7c
-epochsStr="  " ; epochsStr=" --epochs 3000 "  #6h==>N4:1700, N6:2600, N8:3600
+design=dev7crush
+epochsStr="  " ; epochsStr=" --epochs 30 "  # change from yaml-default
 #LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
 
 N=${SLURM_NNODES}
@@ -32,12 +32,13 @@ facility=crusher
 
 #wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
 baseDir=/gpfs/alpine/ast153/scratch/balewski/tmp_NyxHydro4kF/
+#baseDir=/gpfs/alpine/stf016/world-shared/vgv/inbox/olcfdev-571/tmp_NyxHydro4kF/
 wrkDir=${baseDir}/${jobId}
 
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 
 date
 
-export CMD=" python -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
+export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
 
 echo CMD=$CMD
 
@@ -47,6 +48,10 @@ mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
 echo S:PWD=`pwd`
+
+#MIOpen issues
+#Xmkdir fakeHome  # already on SCRATCH
+#Xmkdir -p fakeHome/.config/miopen  
 
 # special case: downloading VGG model manually
 # see also https://pytorch.org/docs/stable/hub.html
