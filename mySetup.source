@@ -26,7 +26,7 @@ elif [[ `hostname -f ` == *crusher.olcf* ]]   ; then
  echo "on Crusher"
  eval  `ssh-agent   -s`
  ssh-add ~/.ssh/git-any.pem
- module load rocm emacs
+ module load  emacs
  rocm-smi  
  echo  'SCRATCH /gpfs/alpine/ast153/scratch/balewski '
  echo 'Crusher interactive 1 node:   salloc -A AST153_crusher -p batch --x11 --exclusive  -t 30:00  -N 1 '
