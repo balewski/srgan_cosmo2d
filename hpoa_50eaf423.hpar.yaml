@@ -1,5 +1,9 @@
-Defaults: {cfs_data: /global/homes/b/balewski/prje/data_NyxHydro4k/B/, cfs_out: /global/homes/b/balewski/prje/tmp_NyxHydro4kG/,
-  summit_data: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/, summit_out: /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/}
+Defaults:
+  # note, CFS-based location will run slower vs. SCRATCH
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kF/
+  cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
+  summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
 checkpoint_interval/epochs: 50
 comment: production config for Super-Resolution
 const_local_batch: true
@@ -7,15 +11,23 @@ facility_conf:
   perlmutter:
     D_LR: {decay/epochs: auto, init: 2.39e-05, reduce: 0.0562, warmup/epochs: 20}
     G_LR: {decay/epochs: auto, init: 9.99e-05, reduce: 0.0288, warmup/epochs: 20}
-    base_path: /global/homes/b/balewski/prje/tmp_NyxHydro4kG/
+    base_path:  *CFS_OUT
     batch_size: 4
     data_path: /pscratch/sd/b/balewski/superRes-packed_h5/
+    
   summit:
-    D_LR: {decay/epochs: 900, gamma: 0.4, init: 6e-06}
-    G_LR: {decay/epochs: 900, gamma: 0.4, init: 4e-05}
-    base_path: /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
     batch_size: 6
-    data_path: /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+    D_LR: missing
+
+  crusher:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    D_LR: {decay/epochs: auto, init: 2.39e-05, reduce: 0.0562, warmup/epochs: 20}
+    G_LR: {decay/epochs: auto, init: 9.99e-05, reduce: 0.0288, warmup/epochs: 20}
+    batch_size: 4
+
 hr_size: 512
 model_conf:
   D:
@@ -32,7 +44,7 @@ model_conf:
   comment: hpoA perlmutter 20220212_111627_PST
   tb_model_graph: null
 myId: 50eaf423
-num_cpu_workers: 4
+num_cpu_workers: 8
 num_inp_chan: 1
 opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
 pred_dump_interval/epochs: 100

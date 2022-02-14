@@ -29,7 +29,7 @@ elif [[ `hostname -f ` == *crusher.olcf* ]]   ; then
  module load  emacs
  rocm-smi  
  echo  'SCRATCH /gpfs/alpine/ast153/scratch/balewski '
- echo 'Crusher interactive 1 node:   salloc -A AST153_crusher -p batch --x11 --exclusive  -t 30:00  -N 1 '
+ echo 'Crusher interactive 1 node:   salloc -A AST153_crusher -p batch --x11 --exclusive  -t 30:00   --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive -N 1 '
 fi
 
 

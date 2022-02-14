@@ -6,9 +6,9 @@
 # based on https://github.com/ROCmSoftwarePlatform/MIOpen#persistent-program-cache
 #Users can also disable the cache during runtime using the environmental variable:
 
-export MIOPEN_DISABLE_CACHE=1 # --> Read-only file system: "/ccs/home/balewski/.config
-export MIOPEN_CUSTOM_CACHE_DIR=`pwd`
-# speed: 25 sec/epoch
+# tested on Feb-13 , no benefit any more
+#export MIOPEN_DISABLE_CACHE=1 # --> Read-only file system: "/ccs/home/balewski/.config
+#export MIOPEN_CUSTOM_CACHE_DIR=`pwd`
 export HOME=/tmp/  # suggested by one of  AIML staff at OLCF
 
 if [ ${SLURM_PROCID} -eq 0 ] ; then

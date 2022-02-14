@@ -10,9 +10,7 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=2  # special case for partial use of full node
 
-design=dev7crush
-epochsStr="  " ; epochsStr=" --epochs 30 "  # change from yaml-default
-#LRfactStr="  " #; LRfactStr=" --LRfactor 1.1 "
+design=hpoa_50eaf423 ; epochs=20
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
@@ -30,7 +28,6 @@ env |grep SRCOS2D
 echo "on Crusher"
 facility=crusher
 
-#wrkDir0=$SCRATCH/tmp_NyxHydro4kC/
 baseDir=/gpfs/alpine/ast153/scratch/balewski/tmp_NyxHydro4kF/
 #baseDir=/gpfs/alpine/stf016/world-shared/vgv/inbox/olcfdev-571/tmp_NyxHydro4kF/
 wrkDir=${baseDir}/${jobId}
@@ -38,7 +35,7 @@ wrkDir=${baseDir}/${jobId}
 echo "S: jobId=$jobId  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design --basePath $baseDir  --expName $jobId  $epochsStr  $LRfactStr "
+export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $baseDir  --expName $jobId   "
 
 echo CMD=$CMD
 
