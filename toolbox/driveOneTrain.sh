@@ -1,7 +1,15 @@
 #!/bin/bash 
-export HOME=`pwd`  # to make MIopen happy, only Crusher needs it for
-mkdir -p .config # to make MIopen happy
+#Xexport HOME=`pwd`  # to make MIopen happy, only Crusher needs it for
+#Xmkdir -p .config/miopen  # for MIOpen
 #  MIOpen Error: boost::filesystem::create_directories: Read-only file system: "/ccs/home/balewski/.config"
+# MIOpen: Persistent Program Cache
+# based on https://github.com/ROCmSoftwarePlatform/MIOpen#persistent-program-cache
+#Users can also disable the cache during runtime using the environmental variable:
+
+export MIOPEN_DISABLE_CACHE=1 # --> Read-only file system: "/ccs/home/balewski/.config
+export MIOPEN_CUSTOM_CACHE_DIR=`pwd`
+# speed: 25 sec/epoch
+export HOME=/tmp/  # suggested by one of  AIML staff at OLCF
 
 if [ ${SLURM_PROCID} -eq 0 ] ; then
     [[ -z "${SHIFTER_RUNTIME}" ]]  &&  echo NOT-in-shifter  || echo in-shifter
@@ -13,7 +21,8 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     free -g
     echo D: num-cpus:`nproc --all`
     if [[ `hostname -f ` == *crusher.olcf* ]]   ; then
-	echo "D: Crusher AMD, HOME="$HOME
+	echo "D: Crusher AMD, HOME="$HOME, MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_CUSTOM_CACHE_DIR  MIOPEN_DISABLE_CACHE=$MIOPEN_DISABLE_CACHE
+	#Xecho "D:forMIOpen "`ls -l $HOME/.config`
 	rocm-smi --showid   # AMD
     else 
 	echo "D: NERSC NVIDA"
@@ -27,6 +36,8 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
 
     echo D: survey-end
     #nvidia-smi -l 5 >&L.smi_${SLURM_JOBID} &
+else
+    sleep 60  # put all other ranks to sleep so there is enough time for rank 0 to create .config dir
 fi
 
 if [ ${SLURM_LOCALID} -eq -1 ] ; then
