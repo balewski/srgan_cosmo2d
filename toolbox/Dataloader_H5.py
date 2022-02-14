@@ -140,7 +140,7 @@ class Dataset_h5_srgan2D(object):
         totSamp=idxRange[1]-idxRange[0]
         if 'max_glob_samples_per_epoch' in cf:
             max_samp= cf['max_glob_samples_per_epoch']
-            if dom=='valid': max_samp//=8
+            if dom=='valid': max_samp//=2
             oldN=totSamp
             totSamp=min(totSamp,max_samp)
             if totSamp<oldN and  self.verb>0 :

@@ -27,7 +27,9 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2
+srun -n 1 shifter  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  
+
+(note: exp2 is defined twice - it is convenient for batch jobs)
 
 On Summit: salloc, as corigpu, use facility=summitlogin
 
@@ -77,7 +79,7 @@ import argparse
 #...!...!..................
 def get_parser():
   parser = argparse.ArgumentParser()
-  parser.add_argument("--design", default='dev0', help='[.hpar.yaml] configuration of model and training')
+  parser.add_argument("--design", default='hpoa_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
   parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
@@ -88,7 +90,7 @@ def get_parser():
 
   parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
   parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
-  parser.add_argument("--LRfactor", type=float, default=None, help="(optional) multiplier for initLR for G and D")
+
 
   args = parser.parse_args()
   return args
@@ -137,29 +139,27 @@ if __name__ == '__main__':
       torch.cuda.set_device(params['local_rank'])
       dist.init_process_group(backend='nccl', init_method='env://')
       assert params['world_rank'] == dist.get_rank()
-      print('M:locRank:',params['local_rank'],'rndSeed=',torch.seed())
+      #print('M:locRank:',params['local_rank'],'rndSeed=',torch.seed())
     params['verb'] =args.verb * (params['world_rank'] == 0)
+    #print('M:verbA:',params['verb'],args.verb,params['world_rank'] == 0,params['world_rank'] )
     
     if params['verb']:
       logging.info('M:MASTER_ADDR=%s WORLD_SIZE=%s RANK=%s  pytorch:%s'%(os.environ['MASTER_ADDR'] ,os.environ['WORLD_SIZE'], os.environ['RANK'],torch.__version__ ))
       for arg in vars(args):  logging.info('M:arg %s:%s'%(arg, str(getattr(args, arg))))
 
     blob=read_yaml( args.design+'.hpar.yaml',verb=params['verb'], logger=True)
-    # hack
-    if args.facility=='crusher': args.facility='summit'
     facCf=blob.pop('facility_conf')[args.facility]
-    blob.pop('Defaults')
+    blob.pop('Defaults') # fullfilled its role when Yaml was parsed
+    
     params.update(blob)
     params['design']=args.design
     
     #print('M:params');pprint(params)#tmp
     #... propagate facility dependent config
-    
+        
     for x in ["D_LR","G_LR"]: 
-        params['train_conf'][x]=facCf[x]
-
-    #params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
-
+         params['train_conf'][x]=facCf[x]
+        
     # refine BS for multi-gpu configuration
     tmp_batch_size=facCf['batch_size']
     if params['const_local_batch']: # faster but LR changes w/ num GPUs
@@ -169,7 +169,6 @@ if __name__ == '__main__':
       params['local_batch_size'] = int(tmp_batch_size//params['world_size'])
       params['global_batch_size'] = tmp_batch_size
 
-    
     # capture other args values
     params['h5_path']=facCf['data_path']
     params['h5_name']=args.dataName+'.h5'
@@ -177,18 +176,19 @@ if __name__ == '__main__':
 
     if args.basePath==None:
       args.basePath=facCf['base_path']
-
-    params['exp_path']=os.path.join(args.basePath,args.expName)
+      params['exp_path']=os.path.join(args.basePath,args.expName)
+    else:
+      params['exp_path']=args.basePath # if given it is used w/o modiffication
 
     #.... update selected params based on runtime config
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
         params['max_glob_samples_per_epoch']=args.numSamp
     if args.epochs!=None:
         params['train_conf']['adv_epochs']= args.epochs
-    if args.LRfactor!=None:
-        for  x in ["D_LR"]: #,"G_LR"]: 
-          params['train_conf'][x]['init']*= args.LRfactor
-       
+    for x in ["D_LR","G_LR"]: 
+        if params['train_conf'][x]['decay/epochs']=='auto':
+          params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//2
+        
     trainer = Trainer(params)
     
     trainer.train()

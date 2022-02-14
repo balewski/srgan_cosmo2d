@@ -26,7 +26,10 @@ def get_parser():
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",
+                        #default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        ,help='data location w/o expName')
  
     args = parser.parse_args()
     if args.expName!=None:
@@ -167,7 +170,8 @@ if __name__ == "__main__":
             if i==0:
                 ax.axhline(64,linestyle='--')
                 ax.axvline(64,linestyle='--')
-        
+                #ax.set_xlim(0,64); ax.set_ylim(0,64)
+                
         save_fig(figId,ext=ext,png=png)
 
     if PLOT['skewer']: # - - - -  plot skewer - - - -

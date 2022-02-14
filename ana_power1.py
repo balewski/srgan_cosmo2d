@@ -27,7 +27,10 @@ def get_parser():
     parser.add_argument("-e","--expName",default=None,help="(optional), append experiment dir to data path")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
-    parser.add_argument("-d","--dataPath",  default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/',help='data location w/o expName')
+    parser.add_argument("-d","--dataPath",
+                        #default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        ,help='data location w/o expName')
  
     args = parser.parse_args()
     if args.expName!=None:

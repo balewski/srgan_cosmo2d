@@ -1,0 +1,21 @@
+Execution of HPO for SRGAN-cosmo2d
+
+A) define start-HPAR which will be partially altered for each hypothesis
+
+B) generate Hpar hypothesis randomly and instantly benchmark it for OOM and speed on 1 GPUs (1 PM node), save only accepted HPar sets and benchmark stats into
+
+outPath=/pscratch/sd/b/balewski/tmp_hpoA/a/
+  out.../hpar_XX.conf.yaml
+  out.../hpar_XX.sum.yaml
+
+B1.) 1-GPU benchmark steps
+a) model builds
+b) model traines over 2 pre-G and 2 adv epochs
+
+B2.) select proposals you like for full-scale training
+
+/pscratch/sd/b/balewski/tmp_hpoA/a> cat good_* >hpoSetA.list
+designLib=/pscratch/sd/b/balewski/tmp_hpoA/a/
+
+C) execute full scale trainining using the above hypothesis
+

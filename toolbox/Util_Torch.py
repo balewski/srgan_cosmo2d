@@ -11,7 +11,7 @@ def custom_LR_scheduleB(epoch,opt,lrCf,maxEpoch):
     if epoch>lrCf['decay/epochs']:
         totEpoch=maxEpoch - lrCf['decay/epochs']
         xEpoch=epoch - lrCf['decay/epochs']
-        opt.param_groups[0]['lr']=lrCf['init']*(1.-(1-lrCf['gamma'])*xEpoch/totEpoch )
+        opt.param_groups[0]['lr']=lrCf['init']*(1.-(1-lrCf['reduce'])*xEpoch/totEpoch )
         return
         
         

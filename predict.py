@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ 
 read trained net : model+weights
 read test data from HD5
@@ -7,7 +7,7 @@ infere for  test data
 Inference works alwasy on 1 GPU or CPUs
 
  sol=best2067; exp=dev4_lrFact1.
-./predict.py   --expName $exp --genSol $sol  
+./predict.py   --expName $exp --genSol $sol  (assumes basePath is common for many experiments)
 
 
 """
@@ -37,7 +37,8 @@ def get_parser():
     parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
 
     parser.add_argument("--basePath",
-                        default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
+                        #default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
                         , help="trained model ")
     parser.add_argument("--expName", default='exp03', help="main dir, train_summary stored there")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")

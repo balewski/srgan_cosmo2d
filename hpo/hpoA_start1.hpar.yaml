@@ -1,0 +1,82 @@
+myId: dev6-dual
+Defaults:
+  # note, CFS-based location will run slower vs. SCRATCH
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro4kG/
+  cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/data_NyxHydro4k/B/
+  summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5/
+  summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kD/
+
+facility_conf:
+  perlmutter:
+    base_path:  *CFS_OUT
+    data_path:  /pscratch/sd/b/balewski/superRes-packed_h5/  
+    G_LR: { init: 7.e-5, decay/epochs: auto, reduce: 0.04, warmup/epochs: 20 }	
+    D_LR: { init: 2.e-5, decay/epochs: auto, reduce: 0.04, warmup/epochs: 20 }
+    batch_size: 16   #for A100
+
+  summit:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    G_LR: {decay/epochs: 900, gamma: 0.4, init: 4.e-5}	
+    D_LR: {decay/epochs: 900, gamma: 0.4, init: 6.e-6 }
+    batch_size: 6
+
+# optional, reduces training samples
+#max_glob_samples_per_epoch: 256  # do 1400 or 256
+hr_size: 512
+upscale_factor: 4
+num_inp_chan: 1  # grey images
+#jnum_inp_chan=3  # RGB images
+
+comment: production config for Super-Resolution
+const_local_batch: true
+
+model_conf:
+  comment: D+G models taken from  Lornatang Liu Changyu, https://github.com/Lornatang/SRGAN-PyTorch
+  tb_model_graph: null # D,G, or null
+  D:
+    print_summary: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
+    conv_block: # CNN params
+      filter: [ 64,64, 128,128, 256,256, 512, 512 ]
+      kernel: [ 3,3,   3,3,     3,3,     3,3   ]
+      bn:     [ 0,1,   1,1,     1,1,     1,1   ]
+      stride: [ 1,2,   1,2,     2,2,     2,2   ]
+    fc_block: # w/o last layer
+      dims: [ 1024, 512, 512, 256 ]
+      dropFrac: 0.20
+  G: # in-HPO
+    print_summary: 0  # see D for explanation
+    first_cnn_chan: 64
+    num_resid_conv: 16
+    num_upsamp: 2  # related to zoom-factor?
+
+num_cpu_workers: 4
+opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
+
+text_log_interval/epochs: 1
+checkpoint_interval/epochs: 50
+pred_dump_interval/epochs: 100  # 0=OFF 
+
+train_conf:
+  # Train epochs.
+  pre_epochs:   50   #  generator training phase.
+  adv_epochs:   100  #  adversarial training phase.
+  PG_LR: { init: 1.e-4}
+    
+  perc_warmup/epochs: 150  # attenuates perceptual loss
+  early_stop_discr: {  ring_size/epochs: 200, discr_G_thres: 0.04 }
+
+  # Perceptual G-loss function weights:
+  advers_weight: 0.2
+  content_weight: 0.8
+  pixel_weight: 8.0
+  fft_weight: 0.30
+  msum_weight: 0.06
+
+  # legacy variables
+  start_pre_epoch: 0
+  start_epoch:     0    # ???The number of initial iterations of the adversarial training phase. When set to 0, it means incremental training.
+  resume:        False  # Set to `True` to continue training from checkpoint
+  resume_p_weight:     ""    # Restore the weight of the generator model during generator training.
+  resume_d_weight:        ""  
+  resume_g_weight:        ""   

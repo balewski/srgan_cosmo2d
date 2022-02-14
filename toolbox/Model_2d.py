@@ -150,27 +150,27 @@ class Generator(nn.Module):
 
         # First conv layer.        
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(num_inp_chan, conf['cnn_one_chan'], (9, 9), (1, 1), (4, 4)),
+            nn.Conv2d(num_inp_chan, conf['first_cnn_chan'], (9, 9), (1, 1), (4, 4)),
             nn.PReLU()
         )
 
         # Features trunk blocks.
         trunk = []
-        for _ in range(conf['num_resi_conv']):
-            trunk.append(ResidualConvBlock(conf['cnn_one_chan']))
+        for _ in range(conf['num_resid_conv']):
+            trunk.append(ResidualConvBlock(conf['first_cnn_chan']))
         self.trunk = nn.Sequential(*trunk)
 
         # Second conv layer.
         self.conv_block2 = nn.Sequential(
-            nn.Conv2d(conf['cnn_one_chan'], conf['cnn_one_chan'], (3, 3), (1, 1), (1, 1), bias=False),
-            nn.BatchNorm2d( conf['cnn_one_chan'])
+            nn.Conv2d(conf['first_cnn_chan'], conf['first_cnn_chan'], (3, 3), (1, 1), (1, 1), bias=False),
+            nn.BatchNorm2d( conf['first_cnn_chan'])
         )
 
         # Upscale conv block.
         trunk2 = []  ; assert conf['num_upsamp']==2, not_tested
-        upsamp_chan=conf['cnn_one_chan']*2*2  # because: PixelShuffle(2)
+        upsamp_chan=conf['first_cnn_chan']*2*2  # because: PixelShuffle(2)
         for _ in range(conf['num_upsamp']):
-            trunk2.append(nn.Conv2d(conf['cnn_one_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
+            trunk2.append(nn.Conv2d(conf['first_cnn_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
             trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride1/2
             trunk2.append(nn.PReLU())
             
@@ -178,7 +178,7 @@ class Generator(nn.Module):
 
         # Output layer.
         self.conv_block3 =  nn.Sequential(
-            nn.Conv2d(conf['cnn_one_chan'], num_inp_chan, (9, 9), (1, 1), (4, 4)),
+            nn.Conv2d(conf['first_cnn_chan'], num_inp_chan, (9, 9), (1, 1), (4, 4)),
             nn.PReLU()
         )  # to generate only positive values
 

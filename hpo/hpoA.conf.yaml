@@ -1,0 +1,37 @@
+# constraints for HPAR generation for SRGAN-Cosmo2d
+G_block: # generator format:  LB,UB,mode:
+   first_cnn_chan: [ 2, 7, power2]  
+   num_resid_conv: [ 6, 20, lin-int]
+
+D_conv_block:
+  num_layer: [6,10, lin-int]
+  first_dim: [2,7, power2]
+  dim_fact: [1,2, choice-int]
+  stride2: [0.7, prob-int]
+  kernel: [2,3,4, choice-int ]
+  BN: [ 0.5, prob-int ]
+
+D_fc_block:
+  num_layer: [3,6, lin-int]
+  last_dim: [2,7, power2]
+  dim_fact: [1,2,3,4, choice-int]  
+  drop_frac: [ 0.02, 0.3, exp-float ]
+
+train_conf:
+  D_LR_init: [1e-5, 4e-5, exp-float ]
+  D_LR_reduce: [0.01, 0.2, exp-float ]
+  G_LR_init: [2e-5, 1e-4, exp-float ]
+  G_LR_reduce: [0.01, 0.2, exp-float ]
+  localBS: [ 2, 5, power2]
+
+constraints:
+  minDModelParameters: 1.e6
+  maxDModelParameters: 100.e6
+  minSamplesPerSec: 10.
+
+# ---- legacy 
+#pre_epochs:   3   #  generator training phase.
+#adv_epochs:   3   #  adversarial training phase.	
+
+
+  

@@ -12,7 +12,7 @@ if [ ! -f toolbox/dummy.exe ] ; then
 fi
 
 nodes=8
-epochs=5700
+epochs=5501
 design=dev7d
 
 if [ ! -f $design.hpar.yaml  ] ; then
@@ -21,7 +21,7 @@ fi
 
 
 #for lrFact in  0.69 0.83 1.00 1.20 1.44  0.58  ; do
-for tag in a b c ; do
+for tag in d e ; do
     #jobId=lrfG${lrFact}
     jobId=N${nodes}_${design}_${tag}
    
