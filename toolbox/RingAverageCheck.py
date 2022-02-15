@@ -24,8 +24,8 @@ class RingAverageCheck():
         self.i+=1
 #...!...!..................
     def check(self):
-        self.avr=np.mean(self.buf)
-        self.std=np.std(self.buf)/np.sqrt(self.n)
+        self.avr=float(np.mean(self.buf))
+        self.std=float(np.std(self.buf)/np.sqrt(self.n))
         self.cond=self.func(self.avr,self.std)
         #print('Ring:check() mean=%.2e  std=%.2e  i=%d'%(self.avr,self.std,self.i), '==> func:',self.cond)
         return self.cond

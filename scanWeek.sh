@@ -8,16 +8,16 @@ k=0
 #prjquota m3363  # only works on cori
 
 if [ ! -f toolbox/dummy.exe ] ; then
-    echo S: fixe-me1 ;    exit
+    echo S: fix-me1 in perlmutter;  #  exit
 fi
 
 nodes=1 ; numGlobSamp=160  ; nG=1
-#nodes=1 ; numGlobSamp=320  ; nG=2
+nodes=1 ; numGlobSamp=320  ; nG=2
 #nodes=1 ; numGlobSamp=640  ; nG=4
-#nodes=2 ; numGlobSamp=1280  ; nG=8
-#nodes=4 ; numGlobSamp=2560  ; nG=16
-nodes=8 ; numGlobSamp=2560  ; nG=32
-nodes=16 ; numGlobSamp=2560  ; nG=64
+nodes=1 ; numGlobSamp=1280  ; nG=8
+#nodes=2 ; numGlobSamp=2560  ; nG=16
+#nodes=4 ; numGlobSamp=2560  ; nG=32
+#nodes=8 ; numGlobSamp=2560  ; nG=64
 
 epochs=20
 design=bench_50eaf423
@@ -26,7 +26,7 @@ if [ ! -f $design.hpar.yaml  ] ; then
     echo S: fixe-me2 ;    exit
 fi
 
-for tag in a b ; do
+for tag in g h ; do
     #jobId=lrfG${lrFact}
     jobId=weekG${nG}_${numGlobSamp}_${tag}
   
@@ -34,10 +34,11 @@ for tag in a b ; do
     export SRCOS2D_WRK_SUFIX="$jobId"
     export SRCOS2D_OTHER_PAR=" --epochs ${epochs}  --expName ${jobId} --design $design --numGlobSamp $numGlobSamp  " # will overwrite any other settings
 
-    sbatch   -N $nodes -J week${nG} batchShifter.slr      # PM
+    #sbatch   -N $nodes -J week${nG} batchShifter.slr      # PM
     #./batchShifter.slr      # PM  - interactive
     #bsub  batchSummit.lsf      # Summit
     # ./batchSummit.lsf      # Summit - interactive
+    sbatch   -N $nodes -J week${nG} batchCrusher.slr      # Crusher
     sleep 1
     k=$[ ${k} + 1 ]
     #exit

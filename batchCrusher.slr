@@ -3,41 +3,52 @@
 #SBATCH --time=30:00  -J srCos2d
 #SBATCH  -A AST153_crusher
 #SBATCH -p batch
-#-SBATCH  -x cgpu08 # block sick nodes
+#SBATCH --array 1-1
+#-SBATCH  -x  crusher004 # block sick nodes
 # - - - E N D    O F    SLURM    C O M M A N D S
-# salloc -A AST153_crusher -p batch  -t 30:00  -N 1 --x11 --ntasks-per-node=8 --gpus-per-task=1 --cpus-per-task=8 --exclusive
+
+# salloc -A AST153_crusher -p batch  -t 30:00  -N 1 --x11 --ntasks-per-node=8 --gpus-per-task=4 --cpus-per-task=8 --exclusive
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=2  # special case for partial use of full node
 
-design=hpoa_50eaf423 ; epochs=20
+#design=hpoa_50eaf423; epochs=3000
+design=bench_50eaf423; epochs=5
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
 export MASTER_ADDR=`hostname`
 
-echo S: JID=${SLURM_JOBID} MASTER_ADDR=$MASTER_ADDR  G=$G  N=$N 
+arrIdx=${SLURM_ARRAY_TASK_ID}
+jobId=${SLURM_ARRAY_JOB_ID}_${arrIdx}  # must not inclide'/'
+
+echo S: JID=${jobId} MASTER_ADDR=$MASTER_ADDR  MASTER_PORT=${MASTER_PORT}=  G=$G  N=$N nprocspn=$nprocspn
+
 nodeList=$(scontrol show hostname $SLURM_NODELIST)
 echo S:node-list $nodeList
 
 # grab some variables from environment - if defined
-[[ -z "${SRCOS2D_LR_FACT}" ]] && LRfactStr="  " || LRfactStr=" --LRfactor  ${SRCOS2D_LR_FACT} "
-[[ -z "${SRCOS2D_JOBID}" ]] && jobId=$SLURM_JOBID || jobId="${design}_${SRCOS2D_JOBID}"
+[[ -z "${SRCOS2D_OTHER_PAR}" ]] && otherParStr="  " || otherParStr=" ${SRCOS2D_OTHER_PAR} "
+[[ -z "${SRCOS2D_WRK_SUFIX}" ]] && wrkSufix=$jobId || wrkSufix="${SRCOS2D_WRK_SUFIX}"
 env |grep SRCOS2D
 
 echo "on Crusher"
 facility=crusher
+export MPLCONFIGDIR=$wrkDir
+SIF=/gpfs/alpine/ast153/scratch/balewski/crusher_amd64/rocm4.5-crusher-torch.v4.sif 
+
+ENGINE=" singularity exec  $SIF  "
 
 baseDir=/gpfs/alpine/ast153/scratch/balewski/tmp_NyxHydro4kF/
 #baseDir=/gpfs/alpine/stf016/world-shared/vgv/inbox/olcfdev-571/tmp_NyxHydro4kF/
-wrkDir=${baseDir}/${jobId}
+wrkDir=${baseDir}/${wrkSufix}
 
-echo "S: jobId=$jobId  wrkDir=$wrkDir" 
+echo "S: jobId=$SLURM_JOBID  wrkSufix=$wrkSufix  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3 -u   train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $baseDir  --expName $jobId   "
+export CMD=" python3   train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId   $otherParStr "
 
-echo CMD=$CMD
+echo S: CMD=$CMD  ENGINE=$ENGINE
 
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  $design.hpar.yaml  "
 
@@ -45,10 +56,6 @@ mkdir -p $wrkDir
 cp -rp $codeList  $wrkDir
 cd  $wrkDir
 echo S:PWD=`pwd`
-
-#MIOpen issues
-#Xmkdir fakeHome  # already on SCRATCH
-#Xmkdir -p fakeHome/.config/miopen  
 
 # special case: downloading VGG model manually
 # see also https://pytorch.org/docs/stable/hub.html
@@ -67,11 +74,9 @@ else
     echo S: VGG model found at ${vggPath}
 fi
 
-export MPLCONFIGDIR=$wrkDir
-SIF=/gpfs/alpine/ast153/scratch/balewski/crusher_amd64/rocm4.5-crusher-torch.v4.sif 
 
 echo "S:starting  jobId=$jobId srgan_cosmo2 " `date` " wrkDir= $wrkDir"
-time srun -n $G  -l singularity exec  $SIF toolbox/driveOneTrain.sh   >& log.train
+time srun -n $G  $ENGINE toolbox/driveOneTrain.sh   >& log.train
 
 echo S:done train
 date
