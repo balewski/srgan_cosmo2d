@@ -89,7 +89,7 @@ def get_parser():
   parser.add_argument("-v","--verbosity",type=int,choices=[0,1,2,3], help="increase output verbosity", default=1, dest='verb')
 
   parser.add_argument("--epochs",default=None, type=int, help="(optional), replaces max_epochs from hpar")
-  parser.add_argument("-n", "--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
+  parser.add_argument("-n", "--numGlobSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
 
 
   args = parser.parse_args()
@@ -181,13 +181,13 @@ if __name__ == '__main__':
       params['exp_path']=args.basePath # if given it is used w/o modiffication
 
     #.... update selected params based on runtime config
-    if args.numSamp!=None:  # reduce num steps/epoch - code testing
-        params['max_glob_samples_per_epoch']=args.numSamp
+    if args.numGlobSamp!=None:  # reduce num steps/epoch - code testing
+        params['max_glob_samples_per_epoch']=args.numGlobSamp
     if args.epochs!=None:
         params['train_conf']['adv_epochs']= args.epochs
     for x in ["D_LR","G_LR"]: 
         if params['train_conf'][x]['decay/epochs']=='auto':
-          params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//2
+            params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//2
         
     trainer = Trainer(params)
     

@@ -1,6 +1,6 @@
-#!/bin/bash -l
+#!/bin/bash 
 #SBATCH -N4 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#-SBATCH --time=6:00:00  -J srHpoA
+#-SBATCH --time=5:00:00  -J srHpoA
 #SBATCH --time=30:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
@@ -12,7 +12,8 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=hpoa_50eaf423; epochs=2000
+#design=hpoa_50eaf423; epochs=3000
+design=bench_50eaf423; epochs=5
 doHPO=0  # on/off switch
 
 N=${SLURM_NNODES}
