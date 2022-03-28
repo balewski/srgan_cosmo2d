@@ -109,7 +109,7 @@ class HparGenerator_srganCosmo2d():
             M['filter'].append(mychan)
             M['kernel'].append(kernel)
             M['stride'].append( stride )
-            print(k,'ggg mylen',mylen,'filter:',mychan)
+            #print(k,'ggg mylen',mylen,'filter:',mychan)
             if  mylen<4 : return True # error code
             mylen//=stride            
             mychan*=rnd_value(C['dim_fact'])

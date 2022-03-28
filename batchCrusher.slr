@@ -13,7 +13,7 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=2  # special case for partial use of full node
 
 #design=hpoa_50eaf423; epochs=3000
-design=bench_50eaf423; epochs=5
+design=benchmk_50eaf423; epochs=5
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]

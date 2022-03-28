@@ -25,7 +25,7 @@ logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 from toolbox.Model_2d import Generator
 from toolbox.Util_IOfunc import read_yaml, write_yaml
 from toolbox.Dataloader_H5 import get_data_loader
-from toolbox.Util_Cosmo2d import interpolate_2Dfield
+from toolbox.Util_Cosmo2d import interpolate_2Dfield,  density_2Dfield_numpy,powerSpect_2Dfield_numpy, srgan2d_FOM1, median_conf_V
 from toolbox.Util_H5io3 import  write3_data_hdf5
 
 
@@ -48,7 +48,8 @@ def get_parser():
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")
  
     parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
-
+    parser.add_argument( "--doFOM",  action='store_true', default=False, help="compute FOM ")
+    
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
    
     args = parser.parse_args()
@@ -57,23 +58,30 @@ def get_parser():
     return args
 
 #...!...!..................
-def XXload_model(trainPar,modelPath): # old version from NeuronInverter    
-    # load entirel model
-    modelF = os.path.join(modelPath, trainMD['train_params']['blank_model'])
-    stateF= os.path.join(modelPath, trainMD['train_params']['checkpoint_name'])
-
-    model = torch.load(modelF)
-    model2 = torch.nn.DataParallel(model)
-    allD=torch.load(stateF, map_location=str(device))
-    print('all model ok',list(allD.keys()))
-    stateD=allD["model_state"]
-    keyL=list(stateD.keys())
-    if 'module' not in keyL[0]:
-      ccc={ 'module.%s'%k:stateD[k]  for k in stateD}
-      stateD=ccc
-    model2.load_state_dict(stateD)
-    return model2
-
+def histo_dens(hrA,srA,Rall):  # input: images = log(rho+1) 
+    nsamp=hrA.shape[0]
+    for i in range(nsamp):
+        # ... compute density
+        rphys,Rhr=density_2Dfield_numpy(hrA[i])
+        _,Rsr=density_2Dfield_numpy(srA[i])    
+        #print('Rsr-',i,Rhr.shape,Rhr.dtype)
+        r_rel=Rsr/Rhr
+        Rall.append(r_rel)
+    
+#...!...!..................
+def histo_power(hrA,srA,space_step,Pall):  # input: densities
+    nsamp=hrA.shape[0]
+    for i in range(nsamp):
+         # ... compute power spectra
+        hr=hrA[i,0] # skip C-index, for now it is 1 channel
+        sr=srA[i,0] 
+        
+        kphys,kidx,Phr,fftA2=powerSpect_2Dfield_numpy(hr,d=space_step)
+        _,_,Psr,_           =powerSpect_2Dfield_numpy(sr,d=space_step)
+        #print('Psr-',i,Phr.shape)
+        p_rel=Psr/Phr
+        Pall.append(p_rel)
+    
 #...!...!..................
 def model_infer(model,data_loader,trainPar):
     #device=torch.cuda.current_device()   
@@ -93,16 +101,24 @@ def model_infer(model,data_loader,trainPar):
     ILRall=np.empty_like(HRall)
     SRall=np.empty_like(HRall)
     print('P0',HRall.shape)
+
+    if args.doFOM: # need more transient storage
+        print('M: compute FOM ')        
+        densAll=[]; powerAll=[]
+        space_step=trainPar['field2d']['hr']['space_step']  # the same for SR
+        
     nSamp=0
     nStep=0
+    
     with torch.no_grad():
         for lrImg,hrImg in data_loader:
             lrImg_dev, hrImg_dev = lrImg.to(device), hrImg.to(device)
-            #print('P1:',lr.shape)
+            #print('P1:',hrImg.shape)
             srImg_dev = model(lrImg_dev)           
             srImg=srImg_dev.cpu()
             n2=nSamp+srImg.shape[0]
-            print('nn',nSamp,n2)
+            #print('nn',nSamp,n2)
+            
             # convert images to densities=rho+1
             lr=np.exp(lrImg.detach()).numpy()
             hr=np.exp(hrImg.detach()).numpy()
@@ -112,28 +128,42 @@ def model_infer(model,data_loader,trainPar):
             SRall[nSamp:n2,:]=sr
             LRall[nSamp:n2,:]=lr
 
+            if args.doFOM:
+                histo_dens(hrImg,srImg,densAll)
+                histo_power(hr,sr,space_step,powerAll)
+                
             # compute interploated LR
             #print('lrImg',lrImg.shape) # B,C,W,H
             #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
             #print('lrImg.T',lrImg.T.shape) # C,W,H
             # must put channel as the last axis
-            #d=lr.shape[1]
             x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
             x3,_=interpolate_2Dfield(x2, upscale)
             #print('x3',x3.shape)
-            #d*=upscale
             fact=upscale*upscale
             ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
-            print('ilr',ilr.shape) # B,C,W,H
+            #print('ilr',ilr.shape) # B,C,W,H
             ILRall[nSamp:n2,:]=ilr
             nSamp=n2
             nStep+=1
     
     print('infere done, nSamp=%d nStep=%d'%(nSamp,nStep),flush=True)
+
+
+    fomD=None
+    if args.doFOM:
+        Rall=np.array(densAll)
+        Rmed=median_conf_V(Rall)
+        Pall=np.array(powerAll)
+        Pmed=median_conf_V(Pall)
+        print('M:Rmed:',Rmed.shape,'Pmed:',Pmed.shape)
+        fomD=srgan2d_FOM1(Rmed[0],Pmed[0])
+        fomTxt='FOM1: %.2g  = space: %.2g + fft: %.2g'%(fomD['fom'],fomD['r_fom'],fomD['f_fom'])
+        
+        print('M design:',trainPar['design'],fomTxt)
+        pprint(fomD)
     bigD={'lr':LRall,'ilr':ILRall,'sr':SRall,'hr':HRall}
-
-
-    return bigD,nSamp
+    return bigD,nSamp,fomD
 
   
 #=================================
@@ -161,7 +191,7 @@ if __name__ == '__main__':
     
     if 1:
         # instantiate model.
-        model      = Generator(trainPar['num_inp_chan'],trainPar['model_conf']['G']).to(device)
+        model = Generator(trainPar['num_inp_chan'],trainPar['model_conf']['G']).to(device)
         # Load generator model weights
         sol="g-%s.pth"%args.genSol
         model_path=os.path.join(args.expPath,'checkpoints',sol)
@@ -176,13 +206,14 @@ if __name__ == '__main__':
     data_loader = get_data_loader(trainPar, args.domain, verb=1)
  
     startT=time.time()
-    bigD,nSamp=model_infer(model,data_loader,trainPar)
+    bigD,nSamp,fomD=model_infer(model,data_loader,trainPar)
     predTime=time.time()-startT
     print('M: infer :   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
 
     sumRec={}
     sumRec['domain']=args.domain
     sumRec['exp_name']=trainPar['exp_name']
+    sumRec['FOM']=fomD
     #sumRec['exp_name']=trainPar['job_id']
     sumRec['predTime']=predTime
     sumRec['numSamples']=nSamp

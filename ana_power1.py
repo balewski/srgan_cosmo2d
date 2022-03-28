@@ -6,7 +6,7 @@
 import sys,os
 from toolbox.Util_H5io3 import  read3_data_hdf5
 from toolbox.Util_IOfunc import write_yaml
-from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy, median_conf_V, median_conf_1D
+from toolbox.Util_Cosmo2d import  density_2Dfield_numpy,powerSpect_2Dfield_numpy, median_conf_V, median_conf_1D, srgan2d_FOM1
 
 import numpy as np
 import argparse,os
@@ -71,7 +71,8 @@ def do_stats(Y):
     Ymed=median_conf_V(Y)
     Yavr=np.mean(Y,axis=0)
     Ystd=np.std(Y,axis=0)
-    print('M:Ymed',Ymed.shape,Yavr.shape)
+    print('M:Ymed',Ymed.shape,Yavr.shape,'Y:',Y.shape)
+    return Ymed,Yavr,Ystd  # skip filtering, tmp
     
     for i in range(3): # smooth it
         ##1print('Ymed-',i,Ymed)
@@ -101,7 +102,8 @@ def plot_stats(ax,X,Y,Ymed,Yavr=None,Ystd=None):
         ax.plot(X,Yavr+Ystd,linewidth=3,color='gold',linestyle=':',label='avr+/-std')
 
 
-    ax.legend(loc='best', title='summary stats')
+    #ax.legend(loc='best', title='summary stats')
+    ax.legend(loc='upper left')
     ax.axhline(1,linestyle='--')
     ax.grid()
     ax.set_ylim(0.4,1.6)
@@ -166,35 +168,40 @@ if __name__ == "__main__":
 
     #.... recover  data
     
-    HR=fieldD['hr'][:,0]  # skip C-index
+    HR=fieldD['hr'][:,0]  # skip C-index, for now it is 1 channel
     SR=fieldD['sr'][:,0]
     
     space_step=expMD['field2d']['hr']['space_step']  # the same for SR
     nSamp=HR.shape[0]
 
-    R=[];P=[]
+    R=[] # rho-space
+    P=[] # power spectrum space
     for i in range(nSamp):
         # ... compute density
         rphys,Rhr=density_2Dfield_numpy(np.log(HR[i]))
         _,Rsr=density_2Dfield_numpy(np.log(SR[i]))
         
-        #print('Rsr-',i,Rhr)
-        Rrel=Rsr/Rhr
-        R.append(Rrel)
+        #print('Rsr-',i,Rhr.shape)
+        r_rel=Rsr/Rhr
+        R.append(r_rel)
 
         # ... compute power spectra
         kphys,kidx,Phr,fftA2=powerSpect_2Dfield_numpy(HR[i],d=space_step)
         _,_,Psr,_=powerSpect_2Dfield_numpy(SR[i],d=space_step)
+
+        #print('Psr-',i,Phr.shape)
+        p_rel=Psr/Phr
+        P.append(p_rel)
         
-        Prel=Psr/Phr
-        P.append(Prel)
-        
-    Rmed,Ravr,Rstd=do_stats(R)
-    Pmed,Pavr,Pstd=do_stats(P)
+    Rmed,Ravr,Rstd=do_stats(R)  # real space
+    Pmed,Pavr,Pstd=do_stats(P)  # fourier space
     print('M:computed, plotting ...')
-   
-    
-    # - - - - - Plotting - - - - - 
+
+    # experiment w/ FOM
+    fomD=srgan2d_FOM1(Rmed[0],Pmed[0])
+    fomTxt='FOM:%.2g  = space:%.2g + fft:%.2g'%(fomD['fom'],fomD['r_fom'],fomD['f_fom'])
+    print('M fom1:',fomTxt)
+    # - - - - - Plotting - - - - -
     plDD={}
 
     tagN='%s-%s'%(args.expName,args.genSol)
@@ -207,15 +214,15 @@ if __name__ == "__main__":
         plot_stats(ax,rphys,R,Rmed,Ravr,Rstd)
         tit='%s,  relative Density ,    nSamp=%d'%(tagN,nSamp)
         ax.set(title=tit, xlabel='ln(rho+1)',ylabel=' D(k)SR / D(k)HR' )
-        #print('xxx',rphys)
-        #print('Rmed',Rmed)
-        #print('Ravr',Ravr)
+        ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
     
         if PLOT['fft']:  # - - - -  power 
             ax=plt.subplot(nrow,ncol,2)
             plot_stats(ax,kidx,P,Pmed,Pavr,Pstd)
             tit='%s,  relative Power Spectrum'%(tagN)
             ax.set(title=tit, xlabel='wavenumber index',ylabel=' P(k)SR / P(k)HR' )
+            txt2='design='+expMD['modelDesign']
+            ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
 
         save_fig(figId,ext=tagN)
 

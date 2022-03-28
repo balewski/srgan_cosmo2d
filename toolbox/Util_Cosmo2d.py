@@ -30,7 +30,7 @@ def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=150,pad1=True): # ln_field1=ln(
         y[y==0.]=1.11111
         
     return x[:-1],y  # x contains begin of bins
-    #                plot with:    ax.step(x[:-1],y,where='post') 
+    #  plot with:    ax.step(x[:-1],y,where='post') 
    
 #...!...!..................
 def powerSpect_2Dfield_numpy(field,d=1):  # d: Sample spacing (inverse of the sampling rate)
@@ -153,3 +153,16 @@ def median_conf_V(data,p=0.68):  # vectorized version
     #print('MED:idx:', lowCount, upCount, N)
     out=[sdata[N // 2],sdata[lowCount], sdata[upCount]]
     return  np.array(out)
+
+#...!...!..................
+def srgan2d_FOM1(densV,fftV):  # vectorized, version1 uses abs
+    print('SFV: densV ',densV.shape,densV.dtype,' fftV:',fftV.shape,fftV.dtype)
+    # use only median, skip up/low CL
+    r=densV-1.
+    f=fftV-1.
+    #print('xx1',r.shape,r)
+    r_fom=np.mean(np.abs(r))
+    f_fom=np.mean(np.abs(f))
+    fom=r_fom+f_fom
+    fomD={'fom':fom,'r_fom':r_fom,'f_fom':f_fom,'name':'fom1','r_bins':r.shape[0],'f_bins':f.shape[0]}
+    return fomD

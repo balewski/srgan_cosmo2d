@@ -27,7 +27,7 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter  ./train_dist.py   --design dev0  --facility perlmutter  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  
+srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  
 
 (note: exp2 is defined twice - it is convenient for batch jobs)
 
@@ -49,18 +49,6 @@ cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/
 module load open-ce/1.1.3-py38-0
  tensorboard  --port 9700 --logdir=1645832
 
-PM -N8:
-INFO - T:rank 0 of 32, data loaders initialized
-INFO - T:train-data: 5 steps, localBS=16, globalBS=512
-INFO - T:valid-data: 2 steps
-
-
-Summit -N10
-INFO - T:rank 0 of 60, data loaders initialized
-INFO - T:train-data: 7 steps, localBS=6, globalBS=360
-INFO - T:valid-data: 3 steps
- 
-
 '''
 
 import sys,os
@@ -79,12 +67,12 @@ import argparse
 #...!...!..................
 def get_parser():
   parser = argparse.ArgumentParser()
-  parser.add_argument("--design", default='hpoa_50eaf423', help='[.hpar.yaml] configuration of model and training')
+  parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
   parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-  parser.add_argument("--facility", default='corigpu', choices=['corigpu','summit','summitlogin','perlmutter','crusher'],help='computing facility where code is executed')  
+  parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter','crusher'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0,1,2,3], help="increase output verbosity", default=1, dest='verb')
 
@@ -121,7 +109,7 @@ if __name__ == '__main__':
       #os.environ['MASTER_ADDR'] = os.environ['SLURM_LAUNCH_NODE_IPADDR']
       os.environ['RANK'] = os.environ['SLURM_PROCID']
       os.environ['WORLD_SIZE'] = os.environ['SLURM_NTASKS']
-      params['local_rank'] = int(os.environ['SLURM_LOCALID'])
+      params['local_rank'] = 0 # fixed 2022-03  int(os.environ['SLURM_LOCALID'])
 
     params['master_name']=os.environ['MASTER_ADDR']
     params['world_size'] = int(os.environ['WORLD_SIZE'])
@@ -132,7 +120,7 @@ if __name__ == '__main__':
       params['local_rank'] =0
 
     
-    print('M:params',params)
+    #print('M:params',params)
     if params['world_rank']==0:
         print('M:python:',sys.version,'torch:',torch.__version__)
     if params['world_size'] > 1:  # multi-GPU training
