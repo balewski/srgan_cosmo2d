@@ -6,13 +6,13 @@ set -u ;  # exit  if you try to use an uninitialized variable
 k=0
 
 base0=/pscratch/sd/b/balewski/tmp_NyxHydro4kG/
-exp0=1612659_1
+exp0=1618095_147
 sol=last
-outPath=out3
+outPath=out5
 
-for i in {1..10}; do
+for i in {1..40}; do  # takes ~40 min
     exp=${exp0}
-    e=$[ 1000 + $i * 50 ]
+    e=$[ 400 + $i * 50 ]
     sol=epoch$e
     echo  "*** predict" $exp  sol=$sol
     time ./predict.py --basePath $base0  --expName $exp --genSol $sol  --doFOM  >& $outPath/log.pred_$sol

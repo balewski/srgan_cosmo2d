@@ -1,0 +1,21 @@
+date: Tue Feb 5 20:58:59 PST 2019
+namePar: 
+- Omega_m 
+- sigma_8 
+- N_spec 
+- H_0 
+unitPar:
+- 1.0000000
+- 1.0000000
+- 1.0000000
+- 0.7
+physPar:
+- 0.390000
+- 1.040000
+- 1.248000
+- 84.700000
+coreStr : ics_2019-01_a16777216
+boxlength : 100
+seed9 : 16777216
+physOmega_m:  0.390000
+zRedShift:  [0.0]

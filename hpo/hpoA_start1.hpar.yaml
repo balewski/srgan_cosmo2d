@@ -14,12 +14,6 @@ facility_conf:
     D_LR: { init: 2.e-5, decay/epochs: auto, reduce: 0.04, warmup/epochs: 20 }
     batch_size: 16   #for A100
 
-  summit:
-    base_path:  *AST153_WORLD
-    data_path:  *AST153_PROJ
-    G_LR: {decay/epochs: 900, gamma: 0.4, init: 4.e-5}	
-    D_LR: {decay/epochs: 900, gamma: 0.4, init: 6.e-6 }
-    batch_size: 6
 
 # optional, reduces training samples
 #max_glob_samples_per_epoch: 256  # do 1400 or 256
