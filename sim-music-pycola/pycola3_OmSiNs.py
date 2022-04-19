@@ -2,15 +2,14 @@
 '''
 Use with shifter image at NERSC
 
-shifter --image balewski/ubu20-pycola3:v1 bash
- ./pycola3-OmSiNs.py  out cosmoMeta.yaml
+shifter --image balewski/ubu20-pycola3:v1c bash
+ ./pycola3_OmSiNs.py ~/prjs/superRes3D-sim/music  cosmoMeta.yaml
 
 '''
 
 import sys, os
-#sys.path.append(os.path.abspath("/global/homes/b/balewski/prjs/superRes3D-sim/pycola_py2"))
-
-
+from pprint import pprint
+from ruamel.yaml import YAML
 
 ########################################################################
 ########################################################################
@@ -35,11 +34,11 @@ import sys, os
 ########################################################################
 ########################################################################
 
-def runit(infile, outfile, omM,boxlength):
-    
+def runit(infile, outfile, omM,boxlength,levelmax):
+
     import numpy as np
     import matplotlib.pyplot as plt
-    #from pycola3.aux import boundaries
+    from pycola3.aux import boundaries
     from pycola3.ic import ic_2lpt,import_music_snapshot
     from pycola3.evolve import evolve
     from pycola3.ic import ic_2lpt,import_music_snapshot
@@ -53,16 +52,15 @@ def runit(infile, outfile, omM,boxlength):
     # aux.boundaries()
     
     boxsize=boxlength # in Mpc/h
-    level=9
-    level_zoom=9
+    level=levelmax
+    level_zoom=levelmax
     gridscale=3
     
     # Set up according to instructions for 
     # ic.import_music_snapshot()
-    level0='09' # should match level above
-    level1='09' # should match level_zoom above
+    level0='0%d'%level # should match level above
+    level1='0%d'%level_zoom # should match level_zoom above
     
-
     # Set how much to cut from the sides of the full box. 
     # This makes the COLA box to be of the following size in Mpc/h:
     # (2.**level-(cut_from_sides[0]+cut_from_sides[1]))/2.**level*boxsize
@@ -75,15 +73,12 @@ def runit(infile, outfile, omM,boxlength):
     #cut_from_sides=[128,128] # 50Mpc/h
     #cut_from_sides=[192,192]  # 25Mpc/h
 
-    ### some nonsens eto convert types from float64 to float32 - I think this is the cause of an error later?
-
+    print('jj1 music_file:',music_file, boxsize,level0,level1)
     sx_full1, sy_full1, sz_full1, sx_full_zoom1, sy_full_zoom1, \
         sz_full_zoom1, offset_from_code \
-        = import_music_snapshot(music_file, \
-                                boxsize,level0=level0,level1=level1)
+        = import_music_snapshot(music_file, boxsize,level0=level0,level1=level1)
     
     NPART_zoom=list(sx_full_zoom1.shape)
-
 
     print("Starting 2LPT on full box.")
     
@@ -93,6 +88,18 @@ def runit(infile, outfile, omM,boxlength):
         ngrid_x, ngrid_y, ngrid_z, gridcellsize  \
         = boundaries(boxsize, level, level_zoom, \
                      NPART_zoom, offset_from_code, [0,0], gridscale)
+
+    #print('jj2',type(BBox_in),BBox_in.dtype)
+    #for xx in [  ,  , , ,, ]:
+    sx_full1=sx_full1.astype(np.float32)
+    sy_full1=sy_full1.astype(np.float32)
+    sz_full1=sz_full1.astype(np.float32)
+    sx_full_zoom1=sx_full_zoom1.astype(np.float32)
+    sy_full_zoom1=sy_full_zoom1.astype(np.float32)
+    sz_full_zoom1=sz_full_zoom1.astype(np.float32)
+        
+    #print('jj2b',type(sx_full1),sx_full1.dtype)
+    #print('jj2c',type(sx_full_zoom1),sx_full_zoom1.dtype)
 
     sx2_full1, sy2_full1, sz2_full1,  sx2_full_zoom1, \
         sy2_full_zoom1, sz2_full_zoom1 \
@@ -169,15 +176,16 @@ def runit(infile, outfile, omM,boxlength):
     print ("2LPT on full box is done.")
     print ("Starting COLA!")
 
-    print ("cellsize:", cellsize)
-
+    print ("cellsize:", cellsize, "outfile:",outfile)
+# adjust arguments to pycola3:
+# https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
     px, py, pz, vx, vy, vz, \
         px_zoom, py_zoom, pz_zoom, vx_zoom, vy_zoom, vz_zoom \
         = evolve( 
             cellsize,
             sx_full, sy_full, sz_full, 
             sx2_full, sy2_full, sz2_full,
-            FULL=True,
+            covers_full_box=True,  #was: FULL=True,
             
             cellsize_zoom=cellsize_zoom,
             sx_full_zoom  = sx_full_zoom , 
@@ -188,7 +196,7 @@ def runit(infile, outfile, omM,boxlength):
             sz2_full_zoom = sz2_full_zoom,
             
             offset_zoom=offset_zoom,
-            BBox_in=BBox_in,
+            bbox_zoom=BBox_in,  #was:  BBox_in=BBox_in,
             
             ngrid_x=ngrid_x,
             ngrid_y=ngrid_y,
@@ -205,9 +213,10 @@ def runit(infile, outfile, omM,boxlength):
             a_final=1.,
             a_initial=1./10.,
             n_steps=10,
-            
-            save_to_file=True,  # set this to True to output the snapshot to a file
-            file_npz_out=outfile,
+
+            filename_npz=outfile,
+            #was: save_to_file=True,  # set this to True to output the snapshot to a file
+            #was: file_npz_out=outfile,
             )
 
     del vx_zoom,vy_zoom,vz_zoom
@@ -218,8 +227,16 @@ def runit(infile, outfile, omM,boxlength):
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
-from projectNBody import read_yaml
-from pprint import pprint
+
+
+def read_yaml(yaml_fn,verb=1):
+        data={}
+        if verb:  print('  read  yaml:',yaml_fn)
+        with open(yaml_fn) as yamlfile:
+            for key, val in YAML().load(yamlfile).items():
+                print('hpar:',key, val)
+                data[key]=val
+        return data
 
 
 if __name__ == '__main__':
@@ -233,9 +250,7 @@ if __name__ == '__main__':
 
     pprint(blob)
  
-    infile=ioPath+'/'+blob['coreStr']+'.hdf5'
-    infile='music/debug.hdf5'
+    infile=os.path.join(ioPath,blob['coreStr']+'.hdf5')
+    #infile='/global/homes/b/balewski/prjs/superRes3D-sim/music/supres_ver1.hdf5'
     outfile=infile.replace('.hdf5','.npz')
-    physOmega_m=blob['physOmega_m']
-    boxlength = blob['boxlength']
-    runit(infile, outfile, physOmega_m,boxlength)
+    runit(infile, outfile, blob['physOmega_m'], blob['boxlength'],blob['levelmax'])

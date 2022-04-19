@@ -1,5 +1,10 @@
 Oryginal, repo: https://bitbucket.org/ohahn/music.git
 
+Music output:
+https://bitbucket.org/ohahn/music/src/master/src/plugins/output_generic.cc
+Pycola evolution:
+https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
+
 1)==== Compilation of the MUSIC code (from Peter N.)
 
 module unload darshan
@@ -29,6 +34,8 @@ Uncomment this 2 lines in  ics_example.conf  to decide about the output format
 format                  = generic
 filename                = debug.hdf5
 
+Also : You want levelmin = levelmax = levelmin_TF to be the same as in your pycola file. See https://bitbucket.org/ohahn/music/wiki/ConfigurationFile
+
 Run the job:
 balewski@cori03:~/prjs/superRes3D-sim/music> ./build/MUSIC ics_example.conf
 
@@ -42,6 +49,11 @@ Build image & unit test
 time docker build -f Dockerfile.ubu20-pycola3 -t balewski/ubu20-pycola3:v1  .
 docker run -it balewski/ubu20-pycola3:v1   /bin/bash
 python3 -c 'import pycola3'
+
+Use with shifter image at NERSC
+
+shifter --image balewski/ubu20-pycola3:v1 bash
+ ./pycola3-OmSiNs.py  out cosmoMeta.yaml
 
 
 XXXXXX
