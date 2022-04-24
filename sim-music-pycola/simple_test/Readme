@@ -1,0 +1,27 @@
+The sequence of commands testing Music+Pycola at NERSC
+
+Dockerfile:
+https://bitbucket.org/balewski/jannersc/src/master/dockerVaria/ubuntu/Dockerfile.ubu20-music-pycola3 
+
+ssh cori
+salloc --nodes 1 --qos interactive --time 01:00:00 -C haswell
+export HDF5_USE_FILE_LOCKING=FALSE
+
+ env|grep  SHIFTER_RUNTIME  # is-in-shifter
+
+ export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "
+ export MUSIC=/usr/share/music/build/MUSIC
+
+
+ time $ENGINE $MUSIC  ics_example.conf
+>>> real	1m39.452s  @ cori-login
+>>> real	0m29.421s  @ haswell exclusive
+
+ time $ENGINE  ./pycola3_OmSiNs.py .  cosmoMeta.yaml     
+>>> real	3m29.299s
+>>> real	1m11.611s  @ haswell exclusive, uses 14 of 64 CPUs & ~no RAM
+ ls -lh univers2.* 
+
+reset setup:
+ $ENGINE cp /usr/share/music/ics_example.conf .
+ $ENGINE cp -rp /usr/share/use_pycola .  DO It manually

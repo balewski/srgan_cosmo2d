@@ -250,7 +250,7 @@ if __name__ == '__main__':
 
     pprint(blob)
  
-    infile=os.path.join(ioPath,blob['coreStr']+'.hdf5')
+    infile=os.path.join(ioPath,blob['coreStr']+'.h5')
     #infile='/global/homes/b/balewski/prjs/superRes3D-sim/music/supres_ver1.hdf5'
     outfile=infile.replace('.hdf5','.npz')
     runit(infile, outfile, blob['physOmega_m'], blob['boxlength'],blob['levelmax'])

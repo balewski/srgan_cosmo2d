@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-'''
-Use with shifter image at NERSC
-
-shifter --image balewski/ubu20-music-pycola3:v2 bash
- ./pycola3_OmSiNs.py ~/prjs/superRes3D-sim/music  cosmoMeta.yaml
-
-'''
-
-import sys, os
-from pprint import pprint
-from ruamel.yaml import YAML
+# DM NBody simulation
 
 ########################################################################
 ########################################################################
@@ -34,7 +24,39 @@ from ruamel.yaml import YAML
 ########################################################################
 ########################################################################
 
-def runit(infile, outfile, omM,boxlength,levelmax):
+__author__ = "Jan Balewski"
+__email__ = "janstar1122@gmail.com"
+
+import os,sys,time
+import configparser
+from projectNBody import cfg2dict
+import numpy as np
+from pprint import pprint
+from toolbox.Util_H5io3 import read3_data_hdf5, write3_data_hdf5
+
+
+import argparse
+def get_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2],
+                        help="increase output verbosity", default=1, dest='verb')
+    parser.add_argument("--dataPath",default='out')
+    parser.add_argument("--simConf",  default='univ_base0', help=" [.ics.conf] music config name")
+    parser.add_argument("--level",default=6, type=int, help=" chose resolution from Music input")
+    args = parser.parse_args()
+
+    for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
+    return args
+
+#...!...!..................
+def XXprojectOne(data,level,boxlength):
+    a=1
+
+# - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - 
+# - - - - - - - - - - - - - - - - - - - - - - 
+
+def runit(infile,  omM,boxlength,levelmax):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -80,8 +102,8 @@ def runit(infile, outfile, omM,boxlength,levelmax):
     
     NPART_zoom=list(sx_full_zoom1.shape)
 
-    print("Starting 2LPT on full box.")
-    
+    print("Starting 2LPT on full box...")
+    t0=time.time()
     #Get bounding boxes for full box with 1 refinement level for MUSIC.
     BBox_in, offset_zoom, cellsize, cellsize_zoom, \
         offset_index, BBox_out, BBox_out_zoom, \
@@ -118,9 +140,6 @@ def runit(infile, outfile, omM,boxlength,levelmax):
             ngrid_x_lpt=ngrid_x,ngrid_y_lpt=ngrid_y,ngrid_z_lpt=ngrid_z,
                        
             offset_zoom=offset_zoom,BBox_in=BBox_in)
-
-
-
 
 
     #Get bounding boxes for the COLA box with 1 refinement level for MUSIC.
@@ -172,13 +191,13 @@ def runit(infile, outfile, omM,boxlength,levelmax):
                                      BBox_out_zoom[2,0]:BBox_out_zoom[2,1]]
     del sx2_full1, sy2_full1, sz2_full1, sx2_full_zoom1, sy2_full_zoom1, sz2_full_zoom1
 
-
-    print ("2LPT on full box is done.")
+    t1=time.time()
+    print ("2LPT on full box is done, elaT=%.1f min"%( (t1-t0)/60.))
     print ("Starting COLA!")
 
-    print ("cellsize:", cellsize, "outfile:",outfile)
-# adjust arguments to pycola3:
-# https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
+    print ("cellsize:", cellsize)
+    # Jan: adjust arguments to pycola3:
+    # https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
     px, py, pz, vx, vy, vz, \
         px_zoom, py_zoom, pz_zoom, vx_zoom, vy_zoom, vz_zoom \
         = evolve( 
@@ -214,43 +233,43 @@ def runit(infile, outfile, omM,boxlength,levelmax):
             a_initial=1./10.,
             n_steps=10,
 
-            filename_npz=outfile,
             #was: save_to_file=True,  # set this to True to output the snapshot to a file
             #was: file_npz_out=outfile,
             )
-
+    outD={'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz}
     del vx_zoom,vy_zoom,vz_zoom
     del vx,vy,vz
-
+    return outD
 
 
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
 
+#=================================
+#=================================
+#  M A I N 
+#=================================
+#=================================
+if __name__=="__main__":
 
-def read_yaml(yaml_fn,verb=1):
-        data={}
-        if verb:  print('  read  yaml:',yaml_fn)
-        with open(yaml_fn) as yamlfile:
-            for key, val in YAML().load(yamlfile).items():
-                print('hpar:',key, val)
-                data[key]=val
-        return data
+    args=get_parser()
+    cfgF=os.path.join(args.dataPath,args.simConf+'.ics.conf')
+    cfg = configparser.RawConfigParser()   
+    cfg.read(cfgF)
+    print('conf sections:',cfg.sections(),cfgF)
+    assert len(cfg.sections())>0
+    levMin=int(cfg['setup']['levelmin'])
+    levMax=int(cfg['setup']['levelmax'])
+    assert args.level>=levMin
+    assert args.level<=levMax
 
-
-if __name__ == '__main__':
-
-    #ymlF='outMusic/cosmoMeta.yaml'
-    ioPath=sys.argv[1]
-    ymlF=sys.argv[2]
-    print ("read YAML from ",ymlF,' and pprint it:')
-    #inpFile=open(ymlF)
-    blob=read_yaml(ymlF)
-
-    pprint(blob)
- 
-    infile=os.path.join(ioPath,blob['coreStr']+'.hdf5')
-    #infile='/global/homes/b/balewski/prjs/superRes3D-sim/music/supres_ver1.hdf5'
-    outfile=infile.replace('.hdf5','.npz')
-    runit(infile, outfile, blob['physOmega_m'], blob['boxlength'],blob['levelmax'])
+    musF = cfg['output']['filename']
+    boxlength = int(cfg['setup']['boxlength'])
+    omega_m=float(cfg['cosmology']['Omega_m'])
+    inpF=os.path.join(args.dataPath,musF)
+    outF=inpF.replace('.music','.pycola%d'%args.level)
+    print('M:inpF',inpF)
+    bigD=runit(inpF,  omega_m, boxlength,args.level)
+    write3_data_hdf5(bigD,outF)
+    print('M: pycola done')

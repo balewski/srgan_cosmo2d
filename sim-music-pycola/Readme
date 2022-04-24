@@ -1,157 +1,41 @@
-Oryginal, repo: https://bitbucket.org/ohahn/music.git
+Manual generation of one universe end-to-end
+Source code:
+https://github.com/philbull/pycola3/blob/main/pycola3/ic.py
 
-Music output:
-https://bitbucket.org/ohahn/music/src/master/src/plugins/output_generic.cc
-Pycola evolution:
-https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
+ssh cori 
+salloc --nodes 1 --qos interactive --time 01:00:00 -C haswell
+export HDF5_USE_FILE_LOCKING=FALSE
+ env|grep  SHIFTER_RUNTIME  # is-in-shifter
+ 
+a) the cosmological params for Music & PyCola are defined in
+univ_base1.ics.conf
 
-1)==== Compilation of the MUSIC code (from Peter N.)
+b) setup software
 
-module unload darshan
-module swap PrgEnv-intel PrgEnv-gnu
-module load cray-hdf5 cray-fftw gsl
-cd superRes3D-sim
-git clone https://bitbucket.org/ohahn/music.git
-cd music
-mkdir build
-cd build
+ export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "
+ export MUSIC=/usr/share/music/build/MUSIC
+ mkdir out
+ 
 
-FFTW3_LIBRARIES=/opt/cray/pe/fftw/3.3.8.10/haswell/lib FFTW3_INCLUDE_DIR=/opt/cray/pe/fftw/3.3.8.10/haswell/include FFTW3_ROOT=/opt/cray/pe/fftw/3.3.8.10/haswell HDF5_ROOT=/opt/cray/pe/hdf5/1.12.1.1/GNU/8.2 ccmake ../
+c) run Music
+ cd out; cp ../univ_base*.ics.conf .
+ time $ENGINE $MUSIC ../univ_base3.ics.conf
+ cd ..
 
-#Then go through the menu hitting 'c' until you see the (g) option and then hit 'g'
-(3*c +g)
-make -j
+c.1) project DM vector filed to density
+  ./projectNBody.py --simConf univ_base3 --extName music --level 7 --inpPath out3 
 
-[100%] Linking CXX executable MUSIC
-[100%] Built target MUSIC
+c.2) plot DM density cube
+   ./plotCube.py --dataName univers3.music --dataPath out3 
 
+d) run PyCola  (used 16 CPUs, ~no RAM)
+   time $ENGINE ./pycola3_main.py  --dataPath out --simConf univ_base0 --level 6
+   
+d.1) project DM vector filed to density
+ ./projectNBody.py --simConf univ_base3 --inpPath out3  --extName pycola --level 7
 
-1.b) ===== run test  MUSIC job
-cd  superRes3D-sim/music
-Uncomment this 2 lines in  ics_example.conf  to decide about the output format
-
-##requires HDF5 installation and HDF5 enabled in Makefile
-format                  = generic
-filename                = debug.hdf5
-
-Also : You want levelmin = levelmax = levelmin_TF to be the same as in your pycola file. See https://bitbucket.org/ohahn/music/wiki/ConfigurationFile
-
-Run the job:
-balewski@cori03:~/prjs/superRes3D-sim/music> ./build/MUSIC ics_example.conf
+d.2) plot DM density cube
+   ./plotCube.py --dataName univers3.pycola7  --dataPath out3 
 
 
-c) = = = = = = =  run Pycola using ubuntu20-python3 Docker image
 
-The image definition:
-https://bitbucket.org/balewski/jannersc/src/master/dockerVaria/ubuntu/Dockerfile.ubu20-pycola3
-
-Build image & unit test
-time docker build -f Dockerfile.ubu20-pycola3 -t balewski/ubu20-pycola3:v1  .
-docker run -it balewski/ubu20-pycola3:v1   /bin/bash
-python3 -c 'import pycola3'
-
-Use with shifter image at NERSC
-
-shifter --image balewski/ubu20-pycola3:v1 bash
- ./pycola3-OmSiNs.py  out cosmoMeta.yaml
-
-
-XXXXXX
-=====
-Jan's scheme simulating a single universe
-
-Single node Haswell Slumr job array : batchMakeUniverse.slr
-It executes script: makeOneUniverse.sh
-Update1: -N4 would run on 4 nodes and each node would do different stop-time
-Update2: add constraint Omega_L	= 1-Omega_m 
-
-
-The job sandbox is at : wrkDir=$CSCRATCH/${coreN}-${arrIdx}
-
-
-Processing steps
-A)= = = =  MUSIC (runMusic.sh)  creates those files (0.5 min wall time)
-balewski@cori12:~/prj/cosmoflow-sims/janWorkflow/out> ls -lh
-total 11G
--rw-rw---- 1 balewski nstaff  220 Nov  6 15:28 cosmoMeta.yaml
--rw-rw---- 1 balewski nstaff  730 Nov  6 15:28 ics_2018-12_a12383763.conf
--rw-rw---- 1 balewski nstaff 6.7K Nov  6 15:28 ics_2018-12_a12383763.conf_log.txt
--rw-rw---- 1 balewski nstaff 9.7G Nov  6 15:28 ics_2018-12_a12383763.hdf5
--rw-rw---- 1 balewski nstaff  20K Nov  6 15:28 input_powerspec.txt
--rw-rw---- 1 balewski nstaff  130 Nov  6 15:28 tmp.fix_ics_2018-12_a12383763
--rw-rw---- 1 balewski nstaff 1.1G Nov  6 15:28 wnoise_0009.bin
-
-This is the meta-data file:
-
- ./rdMeta.py 
-inp num args: 1
-read YAML from  out/cosmoMeta.yaml  and pprint it:
-{'boxlength': 512,
- 'coreStr': 'ics_2018-12_a12383763',
- 'date': 'Tue Nov 6 15:28:09 PST 2018',
- 'namePar': ['Omega_m', 'sigma_8'],
- 'physOmega_m': 0.275069,
- 'physPar': [0.275069, 0.783454],
- 'seed9': 12383763,
- 'unitPar': [-0.0674912, -0.6793091]}
-
-B) = = = = = = =  run Pycola 
-Time elapsed on small box (including IC): 523.199383974 seconds.
--rw-rw---- 1 balewski nstaff 1.6G Nov  6 15:53 ics_2018-12_a12383763.npz
-
-C) = = = = = = =  run slicing
- 1.1G Nov  6 15:57 ics_2018-12_a12383763_dim512_full.npy
-...
-  17M Nov  6 15:57 ics_2018-12_a12383763_dim128_cube0.npy
-  17M Nov  6 15:57 ics_2018-12_a12383763_dim128_cube1.npy
- 17M Nov  6 15:57 ics_2018-12_a12383763_dim128_cube2.npy
-...
- 17M Nov  6 15:57 ics_2018-12_a12383763_dim512_sheet21.npy
- 17M Nov  6 15:57 ics_2018-12_a12383763_dim512_sheet22.npy
-
-D) = = = = = = Extract P(k)   in 2 steps
-produce correct hd5 bsed on a template 
-pack_hd5_Pk.py
-= = = = = = = =  One time compilations = = = = = = = = 
-
-A) - - - -  compile MUSIC , on Haswell
-
-balewski@cori01:~/prj/cosmoGenerator/cosmoflow-sims> cd MUSIC/
-
-module unload darshan
-module load cray-fftw gsl cray-hdf5
-time make
-real	3m29.408s
-
-# to test-run manually for three cosmological parameters, nsamples = 3 ## How many simulations 
-
-cd OmSiNs
-# cleanup old outputs: rm ics_0*
-$ time python runCode.py
-real	1m46.831s
-user	32m3.399s
-OUT: MUSIC/OmSiNs/ics_0.275_0.859_0.933.hdf5
-
-
-B) - - - - -  PyCola
-module load python/2.7-anaconda-4.4
-source activate cola_jan1
-(cola_jan1) balewski@cori09:~/prj/cosmoGenerator/cosmoflow-sims> 
-cd ../../pycola/
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/common/software/fftw/3.3.4/hsw/gnu/lib/
-
- time python pycola-OmSiNs-template.py 1
-OUT:  OmSiNs/pycola_0.275_0.859_0.933.npz
-real	8m56.339s
-user	113m47.176s
-
-
-C) - - - - (optional) compile  gimlet2 + matter_pk for Zarija
-
- git clone https://balewski@bitbucket.org/zarija/gimlet2 cosmo-gimlet2
-module load cray-fftw gsl cray-hdf5-parallel
-
-cd gimlet2
-make -j
-cd apps/matter_pk
-make (to make the executable)
