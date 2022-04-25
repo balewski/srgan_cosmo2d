@@ -18,6 +18,7 @@ def get_parser():
         action='store_true', default=False,help="disable X-term for batch mode")
 
     parser.add_argument("-d", "--dataPath",  default='out/',help="scored data location")
+    parser.add_argument("-s", "--showPlots",  default='ab',help="abc-string listing shown plots")
 
     parser.add_argument("--dataName",  default='univers0.music', help="[.dm.h5] desnity cube")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
@@ -36,6 +37,7 @@ def get_parser():
 class Plotter(Plotter_Backbone):
     def __init__(self,args):
         Plotter_Backbone.__init__(self,args)
+        self.args=args
 
 #............................
     def dm_cube(self,X,idx=-1,tit='',figId=7):
@@ -68,8 +70,8 @@ class Plotter(Plotter_Backbone):
         cubeV=[X]
         angle=120
         wmax=np.max(cubeV[0])
-        #wthr=0.3*wmax
-        wthr=3
+        wthr=0.04*wmax
+        #wthr=3
         print('will apply wthr=',wthr,cubeV[0].shape)
         for iT in range(nTime):
             ax = self.plt.subplot(nrow, ncol, iT+1, projection='3d')  
@@ -91,6 +93,8 @@ class Plotter(Plotter_Backbone):
             ax.scatter(xs, ys, zs,alpha=0.8, s=0.4,c='r')
 
             ax.view_init(30, angle)
+            ax.set(title=args.prjName)
+            
             return
             if iT==0:
                 tit=tit
@@ -104,133 +108,6 @@ class Plotter(Plotter_Backbone):
             ytit='sum=%.2e, max=%.2e'%(wmax,wsum)            
             ax.set(title=tit[:65], xlabel=xtit, ylabel=ytit)
 
-        
-#...!...!..................
-    def XXXwaveArray(self,bigD,plDD,figId=5):
-        figId=self.smart_append(figId)
-        nrow,ncol=4,2; yIn=9
-        #nrow,ncol=2,2; yIn=5
-        fig=self.plt.figure(figId,facecolor='white', figsize=(14,yIn))
-        
-        timeV=bigD['time']
-        ia=plDD['iStimAmpl']
-
-        M=bigD['sweepCnt'][ia]
-        spikeC=bigD['spikeCount'][ia]
-        spikeT=bigD['spikeTrait'][ia]
-        sweepT=bigD['sweepTrait'][ia]
-                
-        stimA=bigD['stim'][ia]*5 # better visibility
-        waveA=bigD['waveform'][ia]
-        
-        #print('wdif0',waveA.shape,stimA.shape,len(spikeA[0]))
-        idxL,idxR,idxS=plDD['idxLR']
-        for n in range(idxL,idxR,idxS):
-            if n>=M : continue
-            j=n-idxL
-            if j>=nrow*ncol: continue
-            
-            ax = self.plt.subplot(nrow,ncol,1+j)
-            ks=spikeC[n]
-            [sweepId, sweepTime, serialRes]=sweepT[n]  #*nSweeps
-            
-            ax.plot(timeV,stimA[n], 'C1',linewidth=0.5,label='stim')
-            ax.plot(timeV,waveA[n], 'b',linewidth=0.7,label='soma AP')
-            txt='numSpike=%d  sweep=%d  wallTime=%.1f min'%(ks,n,sweepTime/60.)
-            ax.text(0.35,0.9,txt,transform=ax.transAxes,color='g')
-            if 1: # show valid spikes
-                spikes=spikeT[n][:ks]
-                #print('spikes=',spikes)
-                tPeak=spikes[:,0]
-                yPeak=spikes[:,1]
-                ax.plot(tPeak,yPeak,"*",color='m')
-    
-            if j==0:   ax.text(0.01,0.9,'cell='+plDD['shortName'],transform=ax.transAxes,color='m')
-            if j==1:  ax.text(0.01,0.9,plDD['text1'],transform=ax.transAxes,color='m')
-
-
-            ax.axhline(plDD['peak_thr'],color='m', linestyle='--',linewidth=0.5)
-        
-            yLab='AP (mV)'
-            xLab='time (ms), '+plDD['shortName']+', n=%d'%n
-            ax.set(xlabel=xLab,ylabel=yLab)
-            ax.grid()
-            if j==0: ax.legend(loc='best')
-
-            if 'timeLR' in plDD:  ax.set_xlim(tuple(plDD['timeLR']))
-            if 'amplLR' in plDD: ax.set_ylim(tuple(plDD['amplLR']))
-
-            
-#...!...!..................
-    def score_stimAmpl(self,bigD,plDD,figId=6):
-        figId=self.smart_append(figId)
-        nrow,ncol=1,1
-        fig=self.plt.figure(figId,facecolor='white', figsize=(8,5))
-        ax = self.plt.subplot(nrow,ncol,1)
-
-        sweepC=bigD['sweepCnt']
-        N=sweepC.shape[0] # num stim ampl
-        #stimA=plDD['stimAmpl']
-        scoreA=bigD['spikeCount'] ; yTit='spike count'
-        stimAmplA=plDD['stimAmpl']
-        #print('P:spikeCount',bigD['spikeCount'] )
-
-        data=[]
-        avrScore=[]; stdScore=[]
-        for n in range(N): # loop over stim-ampl          
-           k=sweepC[n]
-           scoreV=scoreA[n][:k]
-           data.append(scoreV)
-           stimV=[stimAmplA[n]]*k
-           avrScore.append(np.mean(scoreV))
-           stdScore.append(np.std(scoreV))
-           
-        ax.violinplot(data,positions=stimAmplA,widths=0.01,showmeans=True)
-        ax.plot(stimAmplA,avrScore)
-        ax.axhline(0,color='g',linestyle='--',linewidth=0.5)
-        ax.axhline(10,color='g',linestyle='--')
-            
-        tit1='experiment: %s'%plDD['shortName']
-        ax.set(ylabel=yTit,xlabel='stim ampl (FS)',title=tit1)
-        ax.legend(loc='best')
-        ax.grid()
-
-        return [stimAmplA,np.array(avrScore),np.array(stdScore),sweepC]
-
-#...!...!..................
-    def score_wallTime(self,bigD,plDD,figId=6):
-        figId=self.smart_append(figId)
-        nrow,ncol=1,1
-        fig=self.plt.figure(figId,facecolor='white', figsize=(6,5))
-        ax = self.plt.subplot(nrow,ncol,1)
-
-        sweepC=bigD['sweepCnt']
-        traitA=bigD['sweepTrait']
-        N=sweepC.shape[0] # num stim ampl
-        stimA=plDD['stimAmpl']
-        scoreA=bigD['spikeCount'] 
-        stimAmplA=plDD['stimAmpl']
-        #print('P:spikeCount',bigD['spikeCount'] )
-
-        avrScore=[]; jj=0
-        for n in range(N):  # loop over stim-ampl
-           k=sweepC[n]
-           traits=traitA[n][:k]  #[sweepId, sweepTime, serialRes]*nSweeps
-           #print('q3',traits.shape,traits)
-           wallTA=np.array(traits[:,1])/60.
-           scoreV=scoreA[n][:k]
-           if np.max(scoreV)<=0: continue
-           dLab='ampl=%.2f'%(stimAmplA[n])
-           dmk=self.mL7[jj%7]; jj+=1
-           ax.plot(wallTA,scoreV,dmk+"-",label=dLab)
-        ax.legend(bbox_to_anchor=(0., 1.06, 1., .106), loc=2,
-                   ncol=4, mode="expand", borderaxespad=0.,
-                  title=plDD['shortName']+', stim ampl (FS)' )
-        
-        yTit='spike count'
-        ax.set(ylabel=yTit,xlabel='wall time (min)')
-        ax.grid()
-        ax.set_ylim(0,10.5)
         
 #...!...!..................
     def spikes_survey2D(self,bigD,plDD,figId=6):
@@ -310,11 +187,17 @@ class Plotter(Plotter_Backbone):
         ax.grid()
             
 #...!...!..................
-    def spikes_survey1D(self,bigD,plDD,figId=6):
+    def dm_2dslices(self,X,figId=6):
         figId=self.smart_append(figId)
         nrow,ncol=1,4
         fig=self.plt.figure(figId,facecolor='white', figsize=(12,2.5))
 
+        numBin=X.shape[0]
+        N=nrow*ncol
+        for i in range(1):
+            img=X[i]
+            
+        
         ia=plDD['iStimAmpl']
         stimAmpl=plDD['stimAmpl'][ia]
         spikeC=bigD['spikeCount'][ia]
@@ -362,14 +245,6 @@ class Plotter(Plotter_Backbone):
         ax.set(xlabel='spike base width (ms)',ylabel='num spikes')
         ax.grid()
             
-#...!...!..................
-def M_save_summary(sumL):
-    sum2D=np.array(sumL)
-    outF=args.dataName+'.sum.h5'
-    print('sum2D:',sum2D.shape)
-    outD={'spikeCount':sum2D}
-    write3_data_hdf5(outD,args.outPath+outF)
-    
 #=================================
 #=================================
 #  M A I N 
@@ -385,5 +260,7 @@ if __name__=="__main__":
     
     # - - - - - PLOTTER - - - - -
     plot=Plotter(args)
-    plot.dm_cube(bigD['music'])
+    if 'a' in args.showPlots:   plot.dm_cube(bigD['music'])
+    if 'b' in args.showPlots:   plot.dm_slices(bigD['music'])
+        
     plot.display_all('scoreExp')

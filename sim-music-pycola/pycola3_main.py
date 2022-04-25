@@ -111,7 +111,7 @@ def runit(infile,  omM,boxlength,levelmax):
         = boundaries(boxsize, level, level_zoom, \
                      NPART_zoom, offset_from_code, [0,0], gridscale)
 
-    #print('jj2',type(BBox_in),BBox_in.dtype)
+    #print('jj2 BBox_in',BBox_in.shape,type(BBox_in),BBox_in.dtype)
     #for xx in [  ,  , , ,, ]:
     sx_full1=sx_full1.astype(np.float32)
     sy_full1=sy_full1.astype(np.float32)
@@ -141,6 +141,7 @@ def runit(infile,  omM,boxlength,levelmax):
                        
             offset_zoom=offset_zoom,BBox_in=BBox_in)
 
+    print('jj3 sx2_full1:',sx2_full1.shape,sx2_full1.sum(),sy2_full_zoom1.shape,sy2_full_zoom1.sum())
 
     #Get bounding boxes for the COLA box with 1 refinement level for MUSIC.
     BBox_in, offset_zoom, cellsize, cellsize_zoom, \
@@ -149,7 +150,8 @@ def runit(infile,  omM,boxlength,levelmax):
         = boundaries(
             boxsize, level, level_zoom, \
             NPART_zoom, offset_from_code, cut_from_sides, gridscale)
-
+    #print('jj4 BBox_in:',BBox_in.shape)
+    
     # Trim full-box displacement fields down to COLA volume.
     sx_full       =       sx_full1[BBox_out[0,0]:BBox_out[0,1],  \
                                    BBox_out[1,0]:BBox_out[1,1],  \
@@ -193,7 +195,7 @@ def runit(infile,  omM,boxlength,levelmax):
 
     t1=time.time()
     print ("2LPT on full box is done, elaT=%.1f min"%( (t1-t0)/60.))
-    print ("Starting COLA!")
+    print ("Starting COLA! sx_full:",sx_full.shape,np.sum(sx_full),sx2_full.shape,np.sum(sx2_full))
 
     print ("cellsize:", cellsize)
     # Jan: adjust arguments to pycola3:
@@ -239,6 +241,7 @@ def runit(infile,  omM,boxlength,levelmax):
     outD={'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz}
     del vx_zoom,vy_zoom,vz_zoom
     del vx,vy,vz
+    print ("COLA done px:",px.shape,np.sum(px))
     return outD
 
 

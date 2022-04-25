@@ -62,8 +62,8 @@ def projectOne(data,level,boxlength):
     
     H, bins = np.histogramdd(ps, nbins, range=((0,boxlength),(0,boxlength),(0,boxlength)) )
  
-    print ("histo dshape!", H.shape, 'example:', H[5][5][5])
-    print ('mass sum=%.3g'%np.sum(H)) # takes many seconds, just for QA
+    print ("histo shape", H.shape, 'example:', H[5][5][5])
+    print ('mass sum=%.3g, min=%.3g max=%.3g'%(np.sum(H),H.min(),H.max())) # takes many seconds, just for QA
     
     return H.astype('float32')
 
