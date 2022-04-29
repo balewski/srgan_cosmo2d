@@ -3,7 +3,7 @@ __author__ = "Jan Balewski"
 __email__ = "janstar1122@gmail.com"
 
 '''
- tool generaring and evaluating HPAR for SRGAN-Cosmo2d
+ tool generating and evaluating HPAR for SRGAN-Cosmo2d
  
 save: out/hpar_XX.conf.yaml and hpar_XX.sum.yaml 
 uses generator for input

@@ -1,0 +1,52 @@
+#!/bin/bash -l
+#SBATCH --nodes=1 --ntasks-per-node=3  
+#SBATCH --account m3363 # ExaLearn, Peter Nugent, ECP-AD-2.2.6
+#SBATCH --qos=regular -J uni-reg --time=2:28:00  
+#-SBATCH --qos=debug -J uni-dbg --time=25:00  
+#-SBATCH --qos=premium -J univ-pr
+#SBATCH  -C haswell
+#SBATCH  --image=balewski/ubu20-music-pycola3:v1
+
+# bigmem: module load cmem;  salloc -N 1 -C amd -t 4:00:00 -A nstaff -q interactive
+# Cori: salloc --nodes 2 --qos interactive --time 4:00:00 -C haswell  --ntasks-per-node=4  
+
+nprocspn=${SLURM_NTASKS_PER_NODE}
+#nprocspn=1  # special case for partial use of full node
+
+N=${SLURM_NNODES}
+G=$[ $N * $nprocspn ]
+
+export LEVEL='9'
+export HDF5_USE_FILE_LOCKING=FALSE
+export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "  #tmp
+export MUSIC=/usr/share/music/build/MUSIC
+
+# grab some variables from environment - if defined
+[[ -z "${SLURM_ARRAY_JOB_ID}" ]] && jid=${SLURM_JOB_ID} || jid=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
+
+srcDir=`pwd`
+
+coreN=univers2/univL${LEVEL}-${jid}
+codeList=" makeOneUniverse.sh *py ../toolbox univ_base$LEVEL.ics.conf batchMakeUniverse.slr"
+date
+echo S: SLURM_CLUSTER_NAME=$SLURM_CLUSTER_NAME  numNodes=$SLURM_NNODES
+#env|grep SLURM
+
+
+srcDir=`pwd`
+wrkDir=$SCRATCH/${coreN}
+mkdir -p ${wrkDir}
+cp -rp $codeList $wrkDir
+cd  $wrkDir 
+echo S: PWD=`pwd` 
+
+( sleep 180; echo `hostname` ; date; free -g; top ibn1)&
+#( sleep 600; echo `hostname` ; date; free -g; top ibn1)&
+#( sleep 1200; echo `hostname` ; date; free -g; top ibn1)&
+
+time srun -n $G -l $ENGINE  ./makeOneUniverse.sh  
+echo S:uni-done
+
+# mv slurm log to final destination - it is alwasy a job-array
+mv $srcDir/slurm-${jid}.out .
+

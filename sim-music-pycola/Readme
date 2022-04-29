@@ -3,39 +3,38 @@ Source code:
 https://github.com/philbull/pycola3/blob/main/pycola3/ic.py
 
 ssh cori 
-salloc --nodes 1 --qos interactive --time 01:00:00 -C haswell
-export HDF5_USE_FILE_LOCKING=FALSE
+salloc --nodes 1 --qos interactive --time 4:00:00 -C haswell
+
  env|grep  SHIFTER_RUNTIME  # is-in-shifter
  
 a) the cosmological params for Music & PyCola are defined in
-univ_base1.ics.conf
+univ_base3.ics.conf
 
 b) setup software
-
+ export HDF5_USE_FILE_LOCKING=FALSE
  export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "
  export MUSIC=/usr/share/music/build/MUSIC
- mkdir out
+ out=$SCRATCH/tmp2/out7
+ uni=univ_base7
+ mkdir $out
  
 
 c) run Music
- cd out; cp ../univ_base*.ics.conf .
- time $ENGINE $MUSIC ../univ_base3.ics.conf
- cd ..
+ cp $uni.ics.conf $out
+ cd $out
+ time $ENGINE $MUSIC $uni.ics.conf
+ cd -
 
-c.1) project DM vector filed to density
-  ./projectNBody.py --simConf univ_base3 --extName music --level 7 --inpPath out3 
-
-c.2) plot DM density cube
-   ./plotCube.py --dataName univers3.music --dataPath out3 
 
 d) run PyCola  (used 16 CPUs, ~no RAM)
-   time $ENGINE ./pycola3_main.py  --dataPath out --simConf univ_base0 --level 6
+   it does 2 passes in sequence w/o & w/ evolution to z=0
+   time $ENGINE ./pycola3_main.py  --dataPath $out --simConf $uni 
    
-d.1) project DM vector filed to density
- ./projectNBody.py --simConf univ_base3 --inpPath out3  --extName pycola --level 7
+e) project DM vector filed to density, both evolutions
+  ./projectNBody.py --dataName $uni  --dataPath $out
 
-d.2) plot DM density cube
-   ./plotCube.py --dataName univers3.pycola7  --dataPath out3 
+f) plot DM density cube
+   ./plotCube.py --dataName  $uni  --dataPath $out --show abc 
 
 
 
