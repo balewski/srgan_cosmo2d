@@ -29,11 +29,9 @@ __email__ = "janstar1122@gmail.com"
 
 import os,sys,time
 import configparser
-from projectNBody import cfg2dict
 import numpy as np
 from pprint import pprint
 from toolbox.Util_H5io3 import read3_data_hdf5, write3_data_hdf5
-
 
 import argparse
 def get_parser():
@@ -42,21 +40,34 @@ def get_parser():
                         help="increase output verbosity", default=1, dest='verb')
     parser.add_argument("--dataPath",default='out')
     parser.add_argument("--simConf",  default='univ_base0', help=" [.ics.conf] music config name")
-    parser.add_argument("--level",default=6, type=int, help=" chose resolution from Music input")
+    parser.add_argument( "-E","--noEvol", action='store_true',default=False,
+         help="disable evolution to z=0")
+
     args = parser.parse_args()
 
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args
 
 #...!...!..................
-def XXprojectOne(data,level,boxlength):
-    a=1
+def cfg2dict(cfg):
+    metaD={}
+    #print('sections:',cfg.sections())
+    for sectN in cfg.sections():
+        sectObj=cfg[sectN]
+        sect={}
+        metaD[sectN]=sect
+        #print('\nsubs:',sectObj)
+        for k,v in sectObj.items():
+            #print(k,v)
+            sect[k]=v
+
+    return metaD
 
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
 # - - - - - - - - - - - - - - - - - - - - - - 
 
-def runit(infile,  omM,boxlength,levelmax):
+def runPycola(infile,  omM, zstart,zstop,boxlength,levelmax):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -80,8 +91,8 @@ def runit(infile,  omM,boxlength,levelmax):
     
     # Set up according to instructions for 
     # ic.import_music_snapshot()
-    level0='0%d'%level # should match level above
-    level1='0%d'%level_zoom # should match level_zoom above
+    level0='%02d'%level # should match level above
+    level1='%02d'%level_zoom # should match level_zoom above
     
     # Set how much to cut from the sides of the full box. 
     # This makes the COLA box to be of the following size in Mpc/h:
@@ -96,6 +107,7 @@ def runit(infile,  omM,boxlength,levelmax):
     #cut_from_sides=[192,192]  # 25Mpc/h
 
     print('jj1 music_file:',music_file, boxsize,level0,level1)
+    t0=time.time()
     sx_full1, sy_full1, sz_full1, sx_full_zoom1, sy_full_zoom1, \
         sz_full_zoom1, offset_from_code \
         = import_music_snapshot(music_file, boxsize,level0=level0,level1=level1)
@@ -103,7 +115,6 @@ def runit(infile,  omM,boxlength,levelmax):
     NPART_zoom=list(sx_full_zoom1.shape)
 
     print("Starting 2LPT on full box...")
-    t0=time.time()
     #Get bounding boxes for full box with 1 refinement level for MUSIC.
     BBox_in, offset_zoom, cellsize, cellsize_zoom, \
         offset_index, BBox_out, BBox_out_zoom, \
@@ -195,9 +206,11 @@ def runit(infile,  omM,boxlength,levelmax):
 
     t1=time.time()
     print ("2LPT on full box is done, elaT=%.1f min"%( (t1-t0)/60.))
-    print ("Starting COLA! sx_full:",sx_full.shape,np.sum(sx_full),sx2_full.shape,np.sum(sx2_full))
+    print ("Starting COLA! sx_full:",sx_full.shape,'Z start=%.1f --> stop=%.1f'%(zstart,zstop))
 
-    print ("cellsize:", cellsize)
+    #--------------------------  pass 1 ----- full evolution ------
+    n_steps=10
+    print ("cellsize:", cellsize,'n_steps:',n_steps)
     # Jan: adjust arguments to pycola3:
     # https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
     px, py, pz, vx, vy, vz, \
@@ -231,18 +244,70 @@ def runit(infile,  omM,boxlength,levelmax):
             
             Om = float(omM),
             Ol = 1.0-float(omM), 
-            a_final=1.,
-            a_initial=1./10.,
-            n_steps=10,
+            a_final=1./(1.+zstop),  # 'a' is cosmological scale factor
+            a_initial=1./(1.+zstart),
+            n_steps=n_steps,
 
             #was: save_to_file=True,  # set this to True to output the snapshot to a file
             #was: file_npz_out=outfile,
             )
-    outD={'px':px, 'py':py, 'pz':pz, 'vx':vx, 'vy':vy, 'vz':vz}
-    del vx_zoom,vy_zoom,vz_zoom
-    del vx,vy,vz
-    print ("COLA done px:",px.shape,np.sum(px))
-    return outD
+    outD={'z0.px':px, 'z0.py':py, 'z0.pz':pz, 'z0.vx':vx, 'z0.vy':vy, 'z0.vz':vz}    
+    t2=time.time()
+
+    
+    #--------------------------  pass 2 ----- minimal evolution ------
+    n_steps=1
+    zstop2=zstart-1
+    print ("cellsize:", cellsize,'n_steps:',n_steps,'zstop:',zstop)
+    # Jan: adjust arguments to pycola3:
+    # https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
+    px, py, pz, vx, vy, vz, \
+        px_zoom, py_zoom, pz_zoom, vx_zoom, vy_zoom, vz_zoom \
+        = evolve( 
+            cellsize,
+            sx_full, sy_full, sz_full, 
+            sx2_full, sy2_full, sz2_full,
+            covers_full_box=True,  #was: FULL=True,
+            
+            cellsize_zoom=cellsize_zoom,
+            sx_full_zoom  = sx_full_zoom , 
+            sy_full_zoom  = sy_full_zoom , 
+            sz_full_zoom  = sz_full_zoom ,
+            sx2_full_zoom = sx2_full_zoom,
+            sy2_full_zoom = sy2_full_zoom,
+            sz2_full_zoom = sz2_full_zoom,
+            
+            offset_zoom=offset_zoom,
+            bbox_zoom=BBox_in,  #was:  BBox_in=BBox_in,
+            
+            ngrid_x=ngrid_x,
+            ngrid_y=ngrid_y,
+            ngrid_z=ngrid_z,
+            gridcellsize=gridcellsize,
+            
+            ngrid_x_lpt=ngrid_x,
+            ngrid_y_lpt=ngrid_y,
+            ngrid_z_lpt=ngrid_z,
+            gridcellsize_lpt=gridcellsize,
+            
+            Om = float(omM),
+            Ol = 1.0-float(omM), 
+            a_final=1./(1.+zstop2),  # 'a' is cosmological scale factor
+            a_initial=1./(1.+zstart),
+            n_steps=n_steps,
+
+            #was: save_to_file=True,  # set this to True to output the snapshot to a file
+            #was: file_npz_out=outfile,
+            )
+    zz='z%d'%zstop2
+    outD.update({zz+'.px':px, zz+'.py':py, zz+'.pz':pz, zz+'.vx':vx, zz+'.vy':vy, zz+'.vz':vz}  )
+    t3=time.time()
+
+    
+    print ("COLA done, took %.2f min, elaT=%.1f min "%( (t2-t1)/60., (t3-t0)/60.))
+    
+    sumD={'evol_time':t2-t1,'pycola_time':t2-t0,'date':time.strftime("%Y%m%d_%H%M%S_%Z",time.localtime()),'zRedShift':[zstop2,zstop],'zRedShift_label':['z%d'%zstop2,'z%d'%zstop]}
+    return outD,sumD
 
 
 # - - - - - - - - - - - - - - - - - - - - - - 
@@ -260,19 +325,27 @@ if __name__=="__main__":
     cfgF=os.path.join(args.dataPath,args.simConf+'.ics.conf')
     cfg = configparser.RawConfigParser()   
     cfg.read(cfgF)
+    metaD=cfg2dict(cfg)
     print('conf sections:',cfg.sections(),cfgF)
     assert len(cfg.sections())>0
     levMin=int(cfg['setup']['levelmin'])
     levMax=int(cfg['setup']['levelmax'])
-    assert args.level>=levMin
-    assert args.level<=levMax
-
+    assert levMin==levMax
+    zstart=float(cfg['setup']['zstart'])
+    zstop=float(cfg['pycola']['zstop'])
+    
+    # Peter: redshift z=0-->now, z=50 -->40 million years after big-bang
+    
     musF = cfg['output']['filename']
     boxlength = int(cfg['setup']['boxlength'])
     omega_m=float(cfg['cosmology']['Omega_m'])
     inpF=os.path.join(args.dataPath,musF)
-    outF=inpF.replace('.music','.pycola%d'%args.level)
+    outF=inpF.replace('.music','.cola')
     print('M:inpF',inpF)
-    bigD=runit(inpF,  omega_m, boxlength,args.level)
-    write3_data_hdf5(bigD,outF)
+    bigD,sumD=runPycola(inpF,  omega_m, zstart,zstop,boxlength,levMax)
+    
+    metaD['pycola'].update(sumD)
+    write3_data_hdf5(bigD,outF,metaD=metaD)
     print('M: pycola done')
+    #pprint(metaD)
+    

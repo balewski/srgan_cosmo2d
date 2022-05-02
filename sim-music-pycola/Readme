@@ -3,12 +3,12 @@ Source code:
 https://github.com/philbull/pycola3/blob/main/pycola3/ic.py
 
 ssh cori 
-salloc --nodes 1 --qos interactive --time 01:00:00 -C haswell
+salloc --nodes 1 --qos interactive --time 01:00:00 -C haswell  --image=balewski/ubu20-music-pycola3:v1   --ntasks-per-node=3
 export HDF5_USE_FILE_LOCKING=FALSE
  env|grep  SHIFTER_RUNTIME  # is-in-shifter
  
 a) the cosmological params for Music & PyCola are defined in
-univ_base1.ics.conf
+univ_base7.ics.conf
 
 b) setup software
 

@@ -4,7 +4,6 @@ __email__ = "janstar1122@gmail.com"
 
 # project DM vector field to density
 import os,sys,time
-import configparser
 import numpy as np
 import h5py    
 from pprint import pprint
@@ -15,25 +14,23 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2],
                         help="increase output verbosity", default=1, dest='verb')
-    parser.add_argument("--inpPath",default='out')
+    parser.add_argument("--dataPath",default='out')
     parser.add_argument("--outPath", default='same')
-    parser.add_argument("--simConf",  default='univ_base0', help=" [.ics.conf] music config name")
-    parser.add_argument("--level",default=7, type=int, help=" chose resolution from Music input")
-        
-    parser.add_argument("--extName",  default='music',choices=['music','pycola'], help="data name extesion ")
+    parser.add_argument("--dataName",  default='univ_base8', help="[.cola.h5] PyCola output")
     args = parser.parse_args()
+    args.save_uint8=True
 
-    if args.outPath=='same': args.outPath=args.inpPath
+    if args.outPath=='same': args.outPath=args.dataPath
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args
 
 #...!...!..................
-def projectOne(data,level,boxlength):
+def projectOne(bigD,boxlength,level,core):
     nbins=1<<level
    
-    px = data['px']
-    py = data['py']
-    pz = data['pz']
+    px = bigD[core+'.px']
+    py = bigD[core+'.py']
+    pz = bigD[core+'.pz']
 
     print ('pxyz: ',px[0][0][0], py[0][0][0], pz[0][0][0])
    
@@ -45,10 +42,11 @@ def projectOne(data,level,boxlength):
     pzf = np.ndarray.flatten(pz)
 
     print ('pxf.shape', pxf.shape)
-    print ('pxf sample', pxf[0], pyf[0], pzf[0])
-    print ('pxf min/max', pxf.min(), pxf.max())
-    print ('pyf min/max', pyf.min(), pyf.max())
-    print ('pzf min/max', pzf.min(), pzf.max())
+    if args.verb>1:
+        print ('pxf sample', pxf[0], pyf[0], pzf[0])
+        print ('pxf min/max', pxf.min(), pxf.max())
+        print ('pyf min/max', pyf.min(), pyf.max())
+        print ('pzf min/max', pzf.min(), pzf.max())
 
     ### so the flattening is working. Now make this into a 3d array...
     ps = np.vstack( (pxf, pyf, pzf) ).T
@@ -67,119 +65,42 @@ def projectOne(data,level,boxlength):
     
     return H.astype('float32')
 
-#...!...!..................
-def testOne(data):
-    px = data['px']
-    py = data['py']
-    pz = data['pz']
- 
-    print ('ttt pxyz: ',px[0][0][0], py[0][0][0], pz[0][0][0])
-   
-    pxf = np.ndarray.flatten(px)
-    pyf = np.ndarray.flatten(py)
-    pzf = np.ndarray.flatten(pz)
 
-    nd=pxf.shape[0]
-    k=0
-    for i in range(nd):
-        #if pxf[i]<0.1: continue
-        print(i,"%.2f, %.2f, %.2f"%(pxf[i],pyf[i],pzf[i])) 
-        k+=1
-    print('see %d non-zero of %d'%(k,nd))
-    
-#...!...!..................
-def rdMusicH5(inpF,level,boxsize):
-    # match import_music_snapshot(.), /usr/local/lib/python3.8/dist-packages/pycola3/ic.py
-    core='level_0%02d_DM_d'%level
-    print('rdMusicH5:',inpF, 'core:',core)
-    # fill lists creating numpy arrays
-    h5f = h5py.File(inpF, 'r') # read file
-    #aa=h5f['level_000_DM_dx'][:]
-    data={}
-    data['px']=h5f[core+'x'][4:-4, 4:-4, 4:-4] * boxsize
-    data['py']=h5f[core+'y'][4:-4, 4:-4, 4:-4] * boxsize
-    data['pz']=h5f[core+'z'][4:-4, 4:-4, 4:-4] * boxsize
-    h5f.close()
-    aa=data['px']
-    print('px shape',aa.shape,aa.dtype)
-    k=3
-    for i in range(k):
-        j=i+6
-        print(i,data['px'][j,j,j],data['py'][j,j,j],data['pz'][j,j,j])
-    return data
-
-#...!...!..................
-def rdColaH5(inpF):
-    print('rdColaH5:',inpF)
-    # fill lists creating numpy arrays
-    h5f = h5py.File(inpF, 'r') # read file
-    #aa=h5f['level_000_DM_dx'][:]
-    data={}
-    data['px']=h5f['px'][:]
-    data['py']=h5f['py'][:]
-    data['pz']=h5f['pz'][:]
-    h5f.close()
-    aa=data['px']
-    print('px shape',aa.shape,aa.dtype)
-    k=3
-    for i in range(k):
-        j=i+6
-        print(i,data['px'][j,j,j],data['py'][j,j,j],data['pz'][j,j,j])
-    return data
-
-#...!...!..................
-def cfg2dict(cfg):
-    metaD={}
-    #print('sections:',cfg.sections())
-    for sectN in cfg.sections():
-        sectObj=cfg[sectN]
-        sect={}
-        metaD[sectN]=sect
-        #print('\nsubs:',sectObj)
-        for k,v in sectObj.items():
-            #print(k,v)
-            sect[k]=v
-
-    return metaD
 #=================================
 #=================================
 #  M A I N 
 #=================================
 #=================================
 if __name__=="__main__":
-
     args=get_parser()
-    cfgF=os.path.join(args.inpPath,args.simConf+'.ics.conf')
-    cfg = configparser.RawConfigParser()   
-    cfg.read(cfgF)
-    print('conf sections:',cfg.sections(),cfgF)
-    assert len(cfg.sections())>0
-    boxlength = int(cfg['setup']['boxlength'])  # in Mpc/h
-    musF = cfg['output']['filename']
-    metaD=cfg2dict(cfg)
-    
-    if 'music' in args.extName:
-        inpF=os.path.join(args.inpPath,musF)
-        levMin=int(cfg['setup']['levelmin'])
-        levMax=int(cfg['setup']['levelmax'])
-        assert args.level>=levMin
-        assert args.level<=levMax
-        data=rdMusicH5(inpF,args.level,boxlength)
-        metaD.pop('pycola')
-        outF=musF.replace('.h5','.dm.h5')
 
-    if 'pycola' in args.extName:
-        colaF=musF.replace('.music','.pycola%d'%args.level)
-        inpF=os.path.join(args.inpPath,colaF)
-        data=rdColaH5(inpF)
-        metaD['pycola']['filename']=colaF
-        outF=colaF.replace('.h5','.dm.h5')
-        
-    #testOne(data)
-    rho=projectOne(data,args.level,boxlength)
-    bigD={'music':rho}
+    inpF=os.path.join(args.dataPath,args.dataName+'.cola.h5')
+    bigD,inpMD=read3_data_hdf5(inpF, verb=1)
+    #pprint(inpMD)
+    zRedL=inpMD['pycola']['zRedShift_label']
+    boxlength = int(inpMD['setup']['boxlength'])  # in Mpc/h
+    level = int(inpMD['setup']['levelmax'])  
     
-    outF=os.path.join(args.outPath,outF)
-    write3_data_hdf5(bigD,outF,metaD=metaD)
-    #pprint(metaD)
+    outL=[]
+    for zrs in zRedL:
+        
+        rho=projectOne(bigD,boxlength,level,zrs)
+        a=rho.min(); b=rho.max();
+        xD={'min':float(a),'max':float(b)}
+        if args.save_uint8:
+            if b>255:
+                rho=np.clip(rho,0,255)
+                xD['clip']=True
+            rho=rho.astype('uint8')
+            inpMD['dm.'+zrs]=xD
+        outL.append(rho)
+        #ok11
+
+    rho4d=np.stack(outL, axis=-1)
+    print('M:rho4d:',rho4d.shape)
+    bigD={'dm.rho4d':rho4d}
+    outF=os.path.join(args.outPath,args.dataName+'.dm.h5')
+    
+    write3_data_hdf5(bigD,outF,metaD=inpMD)
+    #pprint(inpMD)
     print('M: done')

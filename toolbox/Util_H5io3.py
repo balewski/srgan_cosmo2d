@@ -72,7 +72,7 @@ def read3_data_hdf5(inpF,verb=1,skipKey=None):
         objD[x]=obj
     try:
         inpMD=json.loads(objD.pop('meta.JSON'))
-        print('recovered meta-data with %d keys'%len(inpMD))
+        if verb>0: print('recovered meta-data with %d keys'%len(inpMD))
     except:
         inpMD=None
     if verb>0:
