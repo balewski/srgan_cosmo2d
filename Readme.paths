@@ -1,3 +1,16 @@
+INPUT data :
+/global/cscratch1/sd/balewski/srgan_cosmo2d_data
+SMALL 512-cube data set
+h5ls univL9cola_dm_202204_c30.h5
+meta.JSON                Dataset {1}
+test.hr                  Dataset {4608,  512, 512, 2}
+val.hr                   Dataset {4608,  512, 512, 2}
+train.hr                 Dataset {36864, 512, 512, 2}
+The last dimR 0: zRed=50, 1:zRed=0.
+
+Dataloader will compute lr-images in fly during loading
+
+
 Output dir structure
 
 ***Every experiment,prediction writes all outputs into:

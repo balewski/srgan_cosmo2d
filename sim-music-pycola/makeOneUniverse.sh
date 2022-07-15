@@ -34,12 +34,12 @@ echo U:project DM vector filed to density
 ./projectNBody.py --dataName $univN  --dataPath $out >& ${out}/log.project
 
 echo U:plot DM density cube
-time   ./plotCube.py --dataName  $univN  --dataPath $out --outPath $out --show bc -X   >& ${out}/log.plot
+time   ./plotCube.py --dataName  $univN  --dataPath $out --outPath $out --show bcd -X   >& ${out}/log.plot
 
 echo U:done
 exit 0
 
-THIS WILL CRASH - may be it is usefull?
+THIS WILL CRASH - but may be it is usefull?
 #gnuplot> set logscale
 #gnuplot> plot "ics_2018-12_a12383763_rhom_ps3d.txt" u 3:4 w lines
 echo U: plot Pk

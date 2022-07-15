@@ -35,7 +35,6 @@ __all__ = [
 
 class ResidualConvBlock(nn.Module):
     """Implements residual conv function.
-
     Args:
         channels (int): Number of channels in the input image.
     """
@@ -61,12 +60,11 @@ class ResidualConvBlock(nn.Module):
 #............................
 class Discriminator(nn.Module):
 #...!...!..................
-    def __init__(self,num_inp_chan,conf, verb=0) -> None:
+    def __init__(self,num_inp_chan,num_hr_bins,conf, verb=0) -> None:
         super(Discriminator, self).__init__()
         if verb:
             print('D_Model conf='); pprint(conf)
         self.verb=verb
-        num_hr_bins=512 #tmp1
         reluSlope=0.2
         
         self.inp_shape=(num_inp_chan,num_hr_bins,num_hr_bins)
@@ -108,6 +106,7 @@ class Discriminator(nn.Module):
 
         self.fc_block.append( nn.Linear(inp_dim,1))
         self.fc_block.append(nn.Sigmoid())  # the decision
+
 #...!...!..................
     def forwardCnnOnly(self, x):
         #X flatten 2D image 
@@ -119,6 +118,7 @@ class Discriminator(nn.Module):
             x=lyr(x)
             if self.verb>2: print('Jcnn: out ',i,x.shape)
         return x
+    
 #...!...!..................      
     def forward(self, x: Tensor) -> Tensor:
         if self.verb>2: print('DFa:',x.shape,x.dtype)
@@ -126,8 +126,9 @@ class Discriminator(nn.Module):
         x = torch.flatten(x, 1)
         if self.verb>2: print('DFb:',x.shape)
         for i,lyr in enumerate(self.fc_block):
+            if self.verb>2: print('DFc: ',i,lyr.shape)
             x=lyr(x)
-            if self.verb>2: print('DFc: ',i,x.shape)
+            if self.verb>2: print('DFd: ',i,x.shape)
         if self.verb>2: print('DF y',x.shape)        
         return x
     
@@ -169,6 +170,9 @@ class Generator(nn.Module):
         # Upscale conv block.
         trunk2 = []  ; assert conf['num_upsamp']==2, not_tested
         upsamp_chan=conf['first_cnn_chan']*2*2  # because: PixelShuffle(2)
+        # Rearranges elements in a tensor of shape (*, C * r^2, H, W) to a tensor of shape (*, C, H * r, W * r), where r is an upscale factor.
+
+ 
         for _ in range(conf['num_upsamp']):
             trunk2.append(nn.Conv2d(conf['first_cnn_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
             trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride1/2

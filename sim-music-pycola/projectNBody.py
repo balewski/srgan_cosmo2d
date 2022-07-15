@@ -32,7 +32,7 @@ def projectOne(bigD,boxlength,level,core):
     py = bigD[core+'.py']
     pz = bigD[core+'.pz']
 
-    print ('pxyz: ',px[0][0][0], py[0][0][0], pz[0][0][0])
+    print ('pxyz: example',px[0][0][0], py[0][0][0], pz[0][0][0])
    
     #### Try using this hp.histogramdd function...
     ### For this I need to turn the particl elists into coord lists, 
@@ -41,7 +41,7 @@ def projectOne(bigD,boxlength,level,core):
     pyf = np.ndarray.flatten(py)
     pzf = np.ndarray.flatten(pz)
 
-    print ('pxf.shape', pxf.shape)
+    print ('pxf.shape', pxf.shape,core)
     if args.verb>1:
         print ('pxf sample', pxf[0], pyf[0], pzf[0])
         print ('pxf min/max', pxf.min(), pxf.max())
@@ -61,7 +61,7 @@ def projectOne(bigD,boxlength,level,core):
     H, bins = np.histogramdd(ps, nbins, range=((0,boxlength),(0,boxlength),(0,boxlength)) )
  
     print ("histo shape", H.shape, 'example:', H[5][5][5])
-    print ('mass sum=%.3g, min=%.3g max=%.3g'%(np.sum(H),H.min(),H.max())) # takes many seconds, just for QA
+    print ('mass sum=%.3g, min=%.3g max=%.3gi core=%s'%(np.sum(H),H.min(),H.max(),core)) # takes many seconds, just for QA
     
     return H.astype('float32')
 
@@ -76,28 +76,30 @@ if __name__=="__main__":
 
     inpF=os.path.join(args.dataPath,args.dataName+'.cola.h5')
     bigD,inpMD=read3_data_hdf5(inpF, verb=1)
-    #pprint(inpMD)
+    pprint(inpMD)
     zRedL=inpMD['pycola']['zRedShift_label']
     boxlength = int(inpMD['setup']['boxlength'])  # in Mpc/h
     level = int(inpMD['setup']['levelmax'])  
     
     outL=[]
-    for zrs in zRedL:
-        
+    outM={}
+    for zrs in zRedL:        
         rho=projectOne(bigD,boxlength,level,zrs)
         a=rho.min(); b=rho.max();
         xD={'min':float(a),'max':float(b)}
-        if args.save_uint8:
+        if args.save_uint8: #  this will save space
             if b>255:
                 rho=np.clip(rho,0,255)
                 xD['clip']=True
             rho=rho.astype('uint8')
-            inpMD['dm.'+zrs]=xD
+            outM['dm.'+zrs]=xD
         outL.append(rho)
         #ok11
 
     rho4d=np.stack(outL, axis=-1)
     print('M:rho4d:',rho4d.shape)
+    outM['num_bins']=rho4d.shape[1]
+    inpMD['project_dm']=outM
     bigD={'dm.rho4d':rho4d}
     outF=os.path.join(args.outPath,args.dataName+'.dm.h5')
     

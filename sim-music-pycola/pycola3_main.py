@@ -40,8 +40,7 @@ def get_parser():
                         help="increase output verbosity", default=1, dest='verb')
     parser.add_argument("--dataPath",default='out')
     parser.add_argument("--simConf",  default='univ_base0', help=" [.ics.conf] music config name")
-    parser.add_argument( "-E","--noEvol", action='store_true',default=False,
-         help="disable evolution to z=0")
+    #Xparser.add_argument( "-E","--noEvol", action='store_true',default=False,  help="(almost)disable evolution to z=0")
 
     args = parser.parse_args()
 
@@ -251,14 +250,17 @@ def runPycola(infile,  omM, zstart,zstop,boxlength,levelmax):
             #was: save_to_file=True,  # set this to True to output the snapshot to a file
             #was: file_npz_out=outfile,
             )
-    outD={'z0.px':px, 'z0.py':py, 'z0.pz':pz, 'z0.vx':vx, 'z0.vy':vy, 'z0.vz':vz}    
+    outD={}
+    zz='z%d'%zstop
+    outD.update({zz+'.px':px, zz+'.py':py, zz+'.pz':pz, zz+'.vx':vx, zz+'.vy':vy, zz+'.vz':vz}  )
+
     t2=time.time()
 
     
     #--------------------------  pass 2 ----- minimal evolution ------
     n_steps=1
     zstop2=zstart-1
-    print ("cellsize:", cellsize,'n_steps:',n_steps,'zstop:',zstop)
+    print ("cellsize:", cellsize,'n_steps:',n_steps,'zstop2:',zstop2)
     # Jan: adjust arguments to pycola3:
     # https://github.com/philbull/pycola3/blob/main/pycola3/evolve.py
     px, py, pz, vx, vy, vz, \
@@ -302,7 +304,6 @@ def runPycola(infile,  omM, zstart,zstop,boxlength,levelmax):
     zz='z%d'%zstop2
     outD.update({zz+'.px':px, zz+'.py':py, zz+'.pz':pz, zz+'.vx':vx, zz+'.vy':vy, zz+'.vz':vz}  )
     t3=time.time()
-
     
     print ("COLA done, took %.2f min, elaT=%.1f min "%( (t2-t1)/60., (t3-t0)/60.))
     
@@ -335,7 +336,12 @@ if __name__=="__main__":
     zstop=float(cfg['pycola']['zstop'])
     
     # Peter: redshift z=0-->now, z=50 -->40 million years after big-bang
-    
+    if 0:  #experimental
+        import os
+        rank=int(os.environ['SLURM_PROCID'])
+        zstop=[10,5,3][rank]
+        print('my rank=%d zstop=%.1f'%(rank,zstop))
+            
     musF = cfg['output']['filename']
     boxlength = int(cfg['setup']['boxlength'])
     omega_m=float(cfg['cosmology']['Omega_m'])

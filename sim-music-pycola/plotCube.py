@@ -18,7 +18,7 @@ def get_parser():
                          help="disable X-term for batch mode")
 
     parser.add_argument("-d", "--dataPath",  default='out/',help="scored data location")
-    parser.add_argument("-s", "--showPlots",  default='ab',help="abc-string listing shown plots")
+    parser.add_argument("-p", "--showPlots",  default='ab',help="abc-string listing shown plots")
 
     #parser.add_argument("-z", "--zRedShift",  default='50', type=int, help="(int) z red shift")
     
@@ -99,7 +99,7 @@ class Plotter(Plotter_Backbone):
             ax.set_yscale('log')
             ax.grid()
             tit='%s, %s, thres=%d,  maxMass=%d'%(self.args.dataName,zRedL[ir],rp,r2)
-            ax.set(title=tit,xlabel='mass',ylabel='num voxels')
+            ax.set(title=tit,xlabel='mass (lin scale)',ylabel='num voxels')
             ax.axvline(rp,color='m')
 
             
@@ -129,8 +129,8 @@ class Plotter(Plotter_Backbone):
                 if i==2:
                     img=X[:,:,iSlice]; dLab='YZ'
 
-                pos=ax.imshow(img, cmap='Blues',norm=LogNorm(vmin=1.))
-                fig.colorbar(pos, ax=ax)
+                zScale=ax.imshow(img, cmap='Blues',norm=LogNorm(vmin=1.))
+                fig.colorbar(zScale, ax=ax,label='log(rho+1)')
                 ax.grid()
                 tit='%s %s slice=%s'%(self.args.dataName,zRedL[ir],dLab)
                 ax.set(title=tit,xlabel='bins',ylabel='bins')

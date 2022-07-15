@@ -72,7 +72,7 @@ class Trainer(TBSwriter):
           logging.info('T:train-data: %d steps, localBS=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,params['global_batch_size']))
           
           logging.info('T:valid-data: %d steps'%(len(self.valid_loader)))        
-          logging.info('T:meta-data from h5: %s'%pformat(inpMD))
+          if params['verbosity']>1: logging.info('T:meta-data from h5: %s'%pformat(inpMD))
           self.add_tbsummary_record(pformat(inpMD))
           
         if params['world_rank']==0 and 0:  # only for debugging  
@@ -110,20 +110,22 @@ class Trainer(TBSwriter):
             logging.info('T:assemble G+D models')
 
         self.G_model = Generator(params['num_inp_chan'],params['model_conf']['G'],verb=self.verb)
-        self.D_model = Discriminator(params['num_inp_chan'],params['model_conf']['D'],verb=self.verb)
+        self.D_model = Discriminator(params['num_inp_chan'],params['data_shape']['hr_size'],
+                                     params['model_conf']['D'],verb=self.verb)
 
+        
         # add models to TB - takes 1 min
         if self.isRank0:
             gr2tb=params['model_conf']['tb_model_graph']
-            (lrB, hrB)=next(iter(self.train_loader))            
+            (lrFinB, hrIniB,hrFinB)=next(iter(self.train_loader))            
             if 'G'==gr2tb:
                 t1=time.time()
-                self.TBSwriter.add_graph(self.G_model,lrB.to('cpu'))
+                self.TBSwriter.add_graph(self.G_model,lrFinB.float().to('cpu'))
                 t2=time.time()
                 print('TB G-graph done elaT=%.1f'%(t2-t1))
             if 'D'==gr2tb:
                 t1=time.time()
-                self.TBSwriter.add_graph(self.D_model,hrB.to('cpu'))
+                self.TBSwriter.add_graph(self.D_model,hrFinB.float().to('cpu'))
                 t2=time.time()
                 print('TB D-graph done elaT=%.1f'%(t2-t1),gr2tb)
 
@@ -177,15 +179,20 @@ class Trainer(TBSwriter):
             self.add_tbsummary_record(str(self.G_model.short_summary()))
             self.add_tbsummary_record(str(self.D_model.short_summary()))
 
-            Gpr=params['model_conf']['G']['print_summary']
-            Dpr=params['model_conf']['D']['print_summary']
+            Gpr=params['model_conf']['G']['summary_verbosity']
+            Dpr=params['model_conf']['D']['summary_verbosity']
+            cfds=params['data_shape']
             
             if Dpr+Gpr>0: from torchsummary import summary  # not visible if loaded earlier
 
             if Gpr & 1:  logging.info('T:generator layers %s'%pformat(self.G_model))
-            if Gpr & 2:  logging.info('T:generator summary %s'%pformat(summary(self.G_model,tuple(params['lr_img_shape']))))
+            if Gpr & 2:
+                logging.info('T:generator input %s'%pformat(cfds['lr_img']))
+                logging.info('T:generator summary %s'%pformat(summary(self.G_model,tuple(cfds['lr_img']))))
             if Dpr & 1:  logging.info('T:discriminator layers %s'%pformat(self.D_model))
-            if Dpr & 2:  logging.info('T:discriminator summary %s'%pformat(summary(self.D_model,tuple(params['hr_img_shape']))))
+            if Dpr & 2:
+                logging.info('T:discriminator input %s'%pformat(cfds['hr_img']))
+                logging.info('T:discriminator summary %s'%pformat(summary(self.D_model,tuple(cfds['hr_img']))))
             
         self.startEpoch = 0
         self.epoch = self.startEpoch
@@ -395,10 +402,10 @@ class Trainer(TBSwriter):
         # Set generator network in training mode.
         self.G_model.train()
         cnt={'pixel_loss':0.}
-        for index, (lr, hr) in enumerate(self.train_loader):
+        for index, (lrFin, hrIni, hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
-            lr = lr.to(self.device)
-            hr = hr.to(self.device)
+            lrFin = lrFin.to(self.device)
+            hrFin = hrFin.to(self.device)
             
             # Initialize the gradient of the generator model.
             if self.params['opt_pytorch']['zerograd']:
@@ -408,10 +415,10 @@ class Trainer(TBSwriter):
                 self.G_model.zero_grad()
                 
             # Generate super-resolution images.
-            sr = self.G_model(lr)
+            srFin = self.G_model(lrFin)
             
             # Calculate the difference between the super-resolution image and the high-resolution image at the pixel level.
-            pixel_loss = self.pixel_criterion(sr, hr)
+            pixel_loss = self.pixel_criterion(srFin, hrFin)
             # Update the weights of the generator model.
             pixel_loss.backward()
             self.PG_opt.step()
@@ -454,14 +461,14 @@ class Trainer(TBSwriter):
         
         # clear example of .detach() logic: https://github.com/devnag/pytorch-generative-adversarial-networks/blob/master/gan_pytorch.py
         
-        for index, (lr, hr) in enumerate(self.train_loader):
+        for index, (lrFin, hrIni, hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
-            lr = lr.to(self.device)
-            hr = hr.to(self.device)
-            label_size = lr.size(0)
+            lrFin = lrFin.to(self.device)
+            hrFin = hrFin.to(self.device)
+            label_size = lrFin.size(0)
             # Create label. Set the real sample label to 1, and the false sample label to 0.
-            real_label = torch.full([label_size, 1], 1.0, dtype=lr.dtype, device=self.device)
-            fake_label = torch.full([label_size, 1], 0.0, dtype=lr.dtype, device=self.device)
+            real_label = torch.full([label_size, 1], 1.0, dtype=lrFin.dtype, device=self.device)
+            fake_label = torch.full([label_size, 1], 0.0, dtype=lrFin.dtype, device=self.device)
 
             # Initialize the gradient of the discriminator model.
             #.... 1. Train D on real+fake
@@ -472,14 +479,14 @@ class Trainer(TBSwriter):
 
             #....  1A: Train D on real
             # Calculate the loss of the discriminator model on the high-resolution image.
-            output = self.D_model(hr) # d_real_decision
+            output = self.D_model(hrFin) # d_real_decision
             d_loss_hr = self.adversarial_criterion(output, real_label) # d_real_error
             d_loss_hr.backward()  # compute/store gradients, but don't change params
             d_hr = output.mean()   # d_real_decision_mean
             
             #....  1B: Train D on fake
             # Generate super-resolution images.
-            sr = self.G_model(lr)  # d_fake_data
+            sr = self.G_model(lrFin)  # d_fake_data
             # Calculate the loss of the discriminator model on the super-resolution image.
             output = self.D_model(sr.detach()) # d_fake_decision, detach to avoid training G on these labels 
             d_loss_sr = self.adversarial_criterion(output, fake_label) # d_fake_error 
@@ -502,12 +509,12 @@ class Trainer(TBSwriter):
 
             # Perceptual_loss= weighted sum:  pixel + content +  adversarial + power_spect
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
-            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hr)
-            raw_pix_crit= self.pixel_criterion(sr, hr)
+            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hrFin)
+            raw_pix_crit= self.pixel_criterion(sr, hrFin)
             pixel_loss  =  warmAtten *trCf['pixel_weight'] *raw_pix_crit
 
             # convert from log(mass+1 ) --> mass+1, dim=[BS,1,512,512]
-            hr_field=transf_img2field_torch(hr)
+            hr_field=transf_img2field_torch(hrFin)
             sr_field=transf_img2field_torch(sr)
 
             msum_loss= warmAtten *trCf['msum_weight'] *self.msum_criterion(hr_field,sr_field)
@@ -521,8 +528,7 @@ class Trainer(TBSwriter):
             g_loss =  advers_loss +  pixel_loss + content_loss + fft_loss + msum_loss
             
             g_loss.backward() 
-            self.G_opt.step()  # Only optimizes G's parameters
-            
+            self.G_opt.step()  # Only optimizes G's parameters            
             d_sr2 = output.mean()  #dg_fake_decision_mean, what is the purpose of 'sr2' ???
             
             # ..... only monitoring is below + early-stop condition(s)
@@ -551,8 +557,7 @@ class Trainer(TBSwriter):
         self.earlyStopRing.update(cnt['d_fake'])
         #print('RR',self.params['world_rank'],cnt['d_fake'],self.earlyStopRing.buf)
         cnt['early_stop_discr']=torch.tensor(self.earlyStopRing.check(),dtype=torch.float32)
-        if self.isRank0:
-            
+        if self.isRank0:            
             rec={'warm_atten':warmAtten
                  ,'decG_avr+std':self.earlyStopRing.avr+self.earlyStopRing.std
                  ,'decG_avr-std':self.earlyStopRing.avr-self.earlyStopRing.std
@@ -584,14 +589,14 @@ class Trainer(TBSwriter):
         self.G_model.eval()
         with torch.no_grad():
             cnt={'psnr':0.}
-            for index, (lr, hr) in enumerate(self.valid_loader):
+            for index, (lrFin, _, hrFin) in enumerate(self.valid_loader):
                 # Copy the data to the specified device.
-                lr = lr.to(self.device)
-                hr = hr.to(self.device)
+                lrFin = lrFin.to(self.device)
+                hrFin = hrFin.to(self.device)
                 # Generate super-resolution images.
-                sr = self.G_model(lr)
+                sr = self.G_model(lrFin)
                 # Calculate the PSNR indicator.
-                mse_loss = self.psnr_criterion(sr, hr)
+                mse_loss = self.psnr_criterion(sr, hrFin)
                 psnr_value = 10 * torch.log10(1 / mse_loss)                
                 cnt['psnr']+=psnr_value
                
@@ -608,7 +613,7 @@ class Trainer(TBSwriter):
                     if epoch% self.params['pred_dump_interval/epochs']==0:
                         outF=os.path.join(self.params['val_mon_path'],'valid-%s-epoch%d.h5'%(stage,epoch))
                         logging.info('pred dump '+outF)
-                        bigD={'lr':lr,'sr':sr,'hr':hr}                        
+                        bigD={'lrFin':lrFin,'srFin':sr,'hrFin':hrFin}#,'hrIni':hrIni}                        
                         # convert images to fileds
                         for x in bigD:
                             y=bigD[x]
@@ -619,7 +624,7 @@ class Trainer(TBSwriter):
                             metaD[x]=self.params[x]
                         metaD['domain']='valid_batch'
                         metaD['exp_name']=self.params['exp_name']
-                        metaD['numSamples']=int(lr.shape[0])
+                        metaD['numSamples']=int(lrFin.shape[0])
                         metaD['modelDesign']=self.params['myId']
                         metaD['model_path']='train dump'
                         metaD['gen_sol']='%s-epoch%d'%(stage,epoch)

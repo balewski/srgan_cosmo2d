@@ -2,7 +2,7 @@ __author__ = "Jan Balewski"
 __email__ = "janstar1122@gmail.com"
 
 '''
-this data loader reads one shard of data from a common h5-file upon start, there is no distributed sampler
+this data loader reads one shard of data from a common h5-file upon start, there is no distributed sampler!!
 
 reads all data at once and serves them from RAM
 - optimized for mult-GPU training
@@ -10,16 +10,19 @@ reads all data at once and serves them from RAM
 - reads data from common file for all ranks
 - allows for in-fly transformation
 
-Shuffle: only  all samples after read is compleated
+Shuffle: only local samples after read is compleated
 
-Typical input is a large 3D cube, which will be sliced & sampled 
-E.g:  513G  dm_density_4096.h5  contains
-h5-write : dm_density (4096, 4096, 4096) float32
-h5-write : meta.JSON as string (1,) object
+Dataloader expects 2D the HR-images stack one another and split into train/val/test domains.
+E.g. small file:
+/global/cscratch1/sd/balewski/srgan_cosmo2d_data/univL9cola_dm2d_202204_c30.h5
+h5-write : val.hr (4608, 512, 512, 2) uint8
+h5-write : test.hr (4608, 512, 512, 2) uint8
+h5-write : train.hr (36864, 512, 512, 2) uint8
+The last dimR 0: zRed=50=ini, 1:zRed=0.=fin
 
-Currently, only axis=0 is used to subdivide data on train/valid/test/skip 
-using formula which adds 3.3% isolation, parametrized by skipFrac & domFrac 
-See compute_samples_division(numSamp)
+Typical input will be sampled along the 1st axis,
+randomized by mirroring and/or 90-rot,
+the lr.fin-image is derived from  hr.fin by downsampling
 
 '''
 
@@ -35,22 +38,25 @@ from torch.utils.data import Dataset, DataLoader
 import torch 
 import logging
 from toolbox.Util_IOfunc import read_yaml
-from toolbox.Util_Cosmo2d import random_crop_WHC, random_flip_rot_WHC, rebin_WHC, prep_fieldMD
+from toolbox.Util_Cosmo2d import random_flip_rot_WHC, rebin_WHC, prep_fieldMD
 from toolbox.Util_Torch import transf_field2img_torch
 
 #...!...!..................
 def get_data_loader(trainMD,domain, verb=1):
+  trainMD['data_shape']={'upscale_factor': (1<<trainMD['model_conf']['G']['num_upsamp'])}
   conf=copy.deepcopy(trainMD)  # the input may be reused later in the upper level code
+  cfds=conf['data_shape']
   
   dataset=  Dataset_h5_srgan2D(conf,domain,verb)
   
   # return back some info
   trainMD[domain+'_steps_per_epoch']=dataset.sanity()
-  for x in ['lr_size','sim3d','field2d']:
+  for x in ['data_shape','sim3d','field2d']:
       trainMD[x]=conf[x]
 
-  trainMD['hr_img_shape']=[conf['num_inp_chan'],conf['hr_size'],conf['hr_size']]
-  trainMD['lr_img_shape']=[conf['num_inp_chan'],conf['lr_size'],conf['lr_size']]
+  # data dimension is know after data are read in
+  trainMD['data_shape']['hr_img']=[conf['num_inp_chan'],cfds['hr_size'],cfds['hr_size']]
+  trainMD['data_shape']['lr_img']=[conf['num_inp_chan'],cfds['lr_size'],cfds['lr_size']]
   dataloader = DataLoader(dataset,
                           batch_size=conf['local_batch_size'],
                           num_workers=conf['num_cpu_workers'],
@@ -60,26 +66,6 @@ def get_data_loader(trainMD,domain, verb=1):
 
   return dataloader
 
-#...!...!..................
-def compute_samples_division(numSamp): # build division into train/valid/test/skip
-    skipFrac=0.1  # amout of samples left out to assure separation between train/valid/test subset
-    #domFrac={'valid':0.15,'test':0.05,'train':0.7} # 32 GPUs
-    domFrac={'valid':0.27,'test':0.04,'train':0.67}; skipFrac=0.01  # optimal for 64 GPUs*BS=16
-
-    numSkip=int(numSamp * skipFrac/3.)
-    assert numSkip>1
-
-    divRange={}
-    i1=numSkip
-    for dom in domFrac:
-        i2=i1+int(numSamp * domFrac[dom])
-        assert i2>i1
-        divRange[dom]=[i1,i2]
-        i1=i2+numSkip
-
-    #print('divRange:',divRange)
-    return divRange
-
 #-------------------
 #-------------------
 #-------------------
@@ -87,11 +73,9 @@ class Dataset_h5_srgan2D(object):
 #...!...!..................    
     def __init__(self, conf,domain,verb=1):
         conf['domain']=domain
-        conf['cube_name']='dm_density'
+        conf['rec_name']=domain+'.hr'
         assert conf['world_rank']>=0
-        assert conf['hr_size']%conf['upscale_factor']==0
-        conf['lr_size']=conf['hr_size']//conf['upscale_factor']
-
+        
         self.conf=conf
         self.verb=verb
 
@@ -125,31 +109,35 @@ class Dataset_h5_srgan2D(object):
             exit(22)
 
         startTm0 = time.time()
-        
+                
         # = = = READING HD5  start
         h5f = h5py.File(inpF, 'r')
         metaJ=h5f['meta.JSON'][0]
         inpMD=json.loads(metaJ)
 
-        #print('DL:inpD',inpMD) ; ok0
+        cfds=cf['data_shape']
+        #print('DL:inpD'); pprint(inpMD)
+        cfds['hr_size']=inpMD['packing']['raw_cube_shape'][0]
+
+        assert cfds['hr_size']%cfds['upscale_factor']==0
+        cfds['lr_size']=cfds['hr_size']//cfds['upscale_factor']
+        
         #print('DL:recovered meta-data with %d keys dom=%s'%(len(inpMD),dom))
         cf.update(prep_fieldMD(inpMD,cf))
         
-        numSamp=inpMD['cube_shape'][0]        
-        idxRange=compute_samples_division(numSamp)[ dom]
-        totSamp=idxRange[1]-idxRange[0]
-        if 'max_glob_samples_per_epoch' in cf:
+        totSamp=inpMD['packing']['big_index'][cf['rec_name']]
+        
+        if 'max_glob_samples_per_epoch' in cf:            
             max_samp= cf['max_glob_samples_per_epoch']
-            if dom=='valid': max_samp//=2
+            if dom=='valid': max_samp//=4
             oldN=totSamp
             totSamp=min(totSamp,max_samp)
             if totSamp<oldN and  self.verb>0 :
-              logging.warning('GDL: shorter dom=%s max_glob_samples=%d from %d'%(dom,totSamp,oldN))
-            
-            idxRange[1]=idxRange[0]+totSamp
+              logging.warning('GDL: shorter dom=%s max_glob_samples=%d from %d'%(dom,totSamp,oldN))            
+            #idxRange[1]=idxRange[0]+totSamp
 
         
-        self.inpMD=inpMD # will be needad later too        
+        self.inpMD=inpMD # will be needed later too        
         locStep=int(totSamp/cf['world_size']/cf['local_batch_size'])
         locSamp=locStep*cf['local_batch_size']
         if  self.verb>0 :
@@ -165,13 +153,13 @@ class Dataset_h5_srgan2D(object):
         if self.verb: logging.info('DS:file dom=%s myShard=%d, maxShard=%d, sampIdxOff=%d '%(dom,myShard,maxShard,sampIdxOff))       
         
         # data reading starts ....
-        self.data_block=h5f[ cf['cube_name']][sampIdxOff:sampIdxOff+locSamp]
+        self.data_block=h5f[ cf['rec_name']][sampIdxOff:sampIdxOff+locSamp]
         h5f.close()
         # = = = READING HD5  done
         
         if self.verb>0 :
             startTm1 = time.time()
-            if self.verb: logging.info('DS: hd5 read time=%.2f(sec) dom=%s dataBlock.shape=%s'%(startTm1 - startTm0,dom,str(self.data_block.shape)))
+            if self.verb: logging.info('DS: hd5 read time=%.2f(sec) dom=%s dataBlock.shape=%s dtype=%s'%(startTm1 - startTm0,dom,str(self.data_block.shape),self.data_block.dtype))
             
         # .......................................................
         #.... data embeddings, transformation should go here ....
@@ -180,7 +168,7 @@ class Dataset_h5_srgan2D(object):
         # .......................................................
         self.numLocalSamp=self.data_block.shape[0]
         
-        if 0 : # check X normalizations            
+        if 0 : # check X normalizations - from neuron inverter, never used        
             X=self.data_frames
             xm=np.mean(X,axis=1)  # average over 1600 time bins
             xs=np.std(X,axis=1)
@@ -196,25 +184,37 @@ class Dataset_h5_srgan2D(object):
 #...!...!..................
     def __getitem__(self, idx):
         cf=self.conf
+        cfds=cf['data_shape']
         #print('DSI:idx=',idx,cf['domain'],'rank=',cf['world_rank'],'slide:',self.data_block.shape)
         assert idx>=0
         assert idx< self.numLocalSamp
 
-        image=self.data_block[idx]
-        hr=random_crop_WHC(image,cf['hr_size'])
-        assert hr.shape[0]==hr.shape[1]
-        hr=random_flip_rot_WHC(hr) # shape: WHC
-        lr=rebin_WHC(hr,cf['upscale_factor'])
-        #print('DL-GI hr:',hr.shape,np.sum(hr),np.min(hr),', lr:',lr.shape,np.sum(lr))
-        # convert to CWH
-        lr=lr.reshape(1,cf['lr_size'],-1)
-        hr=hr.reshape(1,cf['hr_size'],-1)
+        # primary input dtype=uint8 - this is pair of 3D HR densities for initial & final state
+        hrIF=self.data_block[idx]  
+        #print('DSI:hrIF=',hrIF.shape,hrIF.dtype)
+              
+        hrIF=random_flip_rot_WHC(hrIF) # shape: WHC  
+        lrIF=rebin_WHC(hrIF,cfds['upscale_factor']) # both ini+fin
+        #print('DSI:lrIF=',lrIF.shape,lrIF.dtype,'cf: lr+hr sizes:',cf['lr_size'],cf['hr_size'])
+        #print('DL-GI hr shape+sum+max',hrIF.shape,np.sum(hrIF,axis=(0,1)),np.max(hrIF,axis=(0,1)),', lr:',lrIF.shape,np.sum(lrIF,axis=(0,1)))
 
-        # transform field to image
+        # final 'sample' consist of 3 images obtained from 2d densities
+        # X=(lr.fin,hr.ini), Y=hr.fin
         
-        lrImg=transf_field2img_torch(torch.from_numpy(np.copy(lr+1. )) )
-        hrImg=transf_field2img_torch(torch.from_numpy(np.copy(hr+1. )) )
-        hr2=torch.exp(hrImg)
-        #print('DL-GI2 hr:',torch.sum(hr2),torch.min(hr2))
-        return lrImg,hrImg
+        # use only one C, convert WHC to CWH
+        lrFin=lrIF[...,1].reshape(1,cfds['lr_size'],-1)
+        hrIni=hrIF[...,0].reshape(1,cfds['hr_size'],-1)
+        hrFin=hrIF[...,1].reshape(1,cfds['hr_size'],-1)
+        
+        #print('DL shape  X',lrFin.shape,hrIni.shape,'Y:',hrFin.shape)
+        # transform field to image,computed as log(1+rho)
+        lrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(lrFin+1. )) )
+        hrIniImg=transf_field2img_torch(torch.from_numpy(np.copy(hrIni+1. )) )
+        hrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(hrFin+1. )) )
 
+        # fp32-prec data
+        return lrFinImg.float(),hrIniImg.float(),hrFinImg.float()
+    
+        # finally cast output to fp16 - Jan could not make model to work with it
+        #return lrFinImg.half(),hrIniImg.half(),hrFinImg.half()
+        # RuntimeError: Input type (torch.cuda.HalfTensor) and weight type (torch.cuda.FloatTensor) should be the same

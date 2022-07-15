@@ -28,8 +28,8 @@ def get_parser():
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
     parser.add_argument("-d","--dataPath",
-                        #default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
-                        default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        default='/global/homes/b/balewski/prje/tmp_srganA/'
+                        #default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
                         ,help='data location w/o expName')
  
     args = parser.parse_args()

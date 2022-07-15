@@ -34,11 +34,11 @@ import argparse
 #...!...!..................
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
+    #parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
 
     parser.add_argument("--basePath",
-                        #default='/global/homes/b/balewski/prje/tmp_NyxHydro4kF/'
-                        default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        default='/global/homes/b/balewski/prje/tmp_srganA/'
+                        #default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
                         , help="trained model ")
     parser.add_argument("--expName", default='exp03', help="main dir, train_summary stored there")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
@@ -47,7 +47,7 @@ def get_parser():
 
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")
  
-    parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
+    #parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
     parser.add_argument( "--doFOM",  action='store_true', default=False, help="compute FOM ")
     
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
@@ -56,6 +56,20 @@ def get_parser():
     args.expPath=os.path.join(args.basePath,args.expName)
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args
+
+#...!...!..................
+def interpolate_field_to_hr(lr,upscale):
+    #print('lrImg',lrImg.shape) # B,C,W,H
+    #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
+    #print('lrImg.T',lrImg.T.shape) # C,W,H
+    # must put channel as the last axis
+    x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
+    x3,_=interpolate_2Dfield(x2, upscale)
+    #print('x3',x3.shape)
+    fact=upscale*upscale
+    ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
+    #print('ilr',ilr.shape) # B,C,W,H
+    return ilr
 
 #...!...!..................
 def histo_dens(hrA,srA,Rall):  # input: images = log(rho+1) 
@@ -89,19 +103,23 @@ def model_infer(model,data_loader,trainPar):
 
     # prepare output container, Thorsten's idea
     num_samp=len(data_loader.dataset)
-    hr_size=trainPar['hr_size']
-    lr_size=trainPar['lr_size']
+    cfds=trainPar['data_shape']
+    hr_size=cfds['hr_size']
+    lr_size=cfds['lr_size']
     inp_chan=trainPar['num_inp_chan']
-    upscale=trainPar['upscale_factor']
+    upscale=cfds['upscale_factor']
     print('predict for num_samp=',num_samp,', hr_size=',hr_size,inp_chan)
     
     # clever list-->numpy conversion, Thorsten's idea
-    HRall=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
-    LRall=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
-    ILRall=np.empty_like(HRall)
-    SRall=np.empty_like(HRall)
-    print('P0',HRall.shape)
-
+    class Empty: pass
+    F=Empty()  # fields (not images)
+    F.hrFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
+    F.hrIni=np.empty_like(F.hrFin)
+    F.srFin=np.empty_like(F.hrFin)
+    F.ilrFin=np.empty_like(F.hrFin)
+    F.lrFin=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
+    print('F-container',F.hrFin.shape,list(F.__dict__))
+    
     if args.doFOM: # need more transient storage
         print('M: compute FOM ')        
         densAll=[]; powerAll=[]
@@ -111,39 +129,31 @@ def model_infer(model,data_loader,trainPar):
     nStep=0
     
     with torch.no_grad():
-        for lrImg,hrImg in data_loader:
-            lrImg_dev, hrImg_dev = lrImg.to(device), hrImg.to(device)
+        for lrFinImg,hrIniImg,hrFinImg in data_loader:
+            lrImg_dev, hrImg_dev = lrFinImg.to(device), hrFinImg.to(device)
             #print('P1:',hrImg.shape)
-            srImg_dev = model(lrImg_dev)           
-            srImg=srImg_dev.cpu()
-            n2=nSamp+srImg.shape[0]
+            srImg_dev = model(lrImg_dev) # THE PREDICTION      
+            srFinImg=srImg_dev.cpu()
+            n2=nSamp+srFinImg.shape[0]
             #print('nn',nSamp,n2)
             
             # convert images to densities=rho+1
-            lr=np.exp(lrImg.detach()).numpy()
-            hr=np.exp(hrImg.detach()).numpy()
-            sr=np.exp(srImg.detach()).numpy()
+            lrFin=np.exp(lrFinImg.detach()).numpy()
+            hrFin=np.exp(hrFinImg.detach()).numpy()
+            hrIni=np.exp(hrIniImg.detach()).numpy()
+            srFin=np.exp(srFinImg.detach()).numpy()
 
-            HRall[nSamp:n2,:]=hr    
-            SRall[nSamp:n2,:]=sr
-            LRall[nSamp:n2,:]=lr
-
-            if args.doFOM:
-                histo_dens(hrImg,srImg,densAll)
-                histo_power(hr,sr,space_step,powerAll)
+            F.hrFin[nSamp:n2,:]=hrFin    
+            F.hrIni[nSamp:n2,:]=hrIni
+            F.srFin[nSamp:n2,:]=srFin
+            F.lrFin[nSamp:n2,:]=lrFin
+            F.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
                 
-            # compute interploated LR
-            #print('lrImg',lrImg.shape) # B,C,W,H
-            #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
-            #print('lrImg.T',lrImg.T.shape) # C,W,H
-            # must put channel as the last axis
-            x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
-            x3,_=interpolate_2Dfield(x2, upscale)
-            #print('x3',x3.shape)
-            fact=upscale*upscale
-            ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
-            #print('ilr',ilr.shape) # B,C,W,H
-            ILRall[nSamp:n2,:]=ilr
+            if args.doFOM:
+                histo_dens(hrFinImg,srImg,densAll)
+                histo_power(hrFin,sr,space_step,powerAll)
+                
+            # end-of-infering
             nSamp=n2
             nStep+=1
     
@@ -162,7 +172,10 @@ def model_infer(model,data_loader,trainPar):
         
         print('M design:',trainPar['design'],fomTxt)
         pprint(fomD)
-    bigD={'lr':LRall,'ilr':ILRall,'sr':SRall,'hr':HRall}
+
+        
+    #bigD={'lr':LRall,'ilr':ILRall,'sr':SRall,'hr':HRall}
+    bigD=vars(F)
     return bigD,nSamp,fomD
 
   
@@ -182,7 +195,9 @@ if __name__ == '__main__':
     if args.numSamples!=None:
         trainPar['max_glob_samples_per_epoch' ] = args.numSamples
 
-    pprint(trainPar)
+    trainPar['field2d'].pop('sr')
+    print('trainMD:',list(trainMD))
+    if args.verb>1:pprint(trainPar)
  
     device   = torch.device("cpu")
     #device = torch.device("cuda")
@@ -201,7 +216,7 @@ if __name__ == '__main__':
         model = torch.nn.DataParallel(model) # disable if 1-gpu training was done
         model.load_state_dict(state_dict)
 
-    trainPar['h5_path']='/global/homes/b/balewski/prje/data_NyxHydro4k/B/' #tmp
+    #XtrainPar['h5_path']='/global/homes/b/balewski/prje/data_NyxHydro4k/B/' #tmp
     trainPar['num_cpu_workers']=1
     data_loader = get_data_loader(trainPar, args.domain, verb=1)
  

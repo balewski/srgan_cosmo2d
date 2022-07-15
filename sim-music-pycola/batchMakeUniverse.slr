@@ -7,7 +7,7 @@
 #SBATCH  --image=balewski/ubu20-music-pycola3:v1
 
 # bigmem: module load cmem;  salloc -N 1 -C amd -t 4:00:00 -A nstaff -q interactive
-# Cori: salloc --nodes 2 --qos interactive --time 4:00:00 -C haswell  --ntasks-per-node=4  
+# Cori: salloc --nodes 1 --qos interactive --time 4:00:00 -C haswell  --image=balewski/ubu20-music-pycola3:v1  --ntasks-per-node=3  
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
@@ -20,10 +20,10 @@ G=$[ $N * $nprocspn ]
 
 export LEVEL='7'
 export HDF5_USE_FILE_LOCKING=FALSE
-export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "  #tmp
+#export ENGINE=" shifter --image=balewski/ubu20-music-pycola3:v1 "
+export ENGINE=" shifter  "  # this should suffice
 export MUSIC=/usr/share/music/build/MUSIC
 export MYJID="${jid}"
-
 
 srcDir=`pwd`
 
@@ -32,7 +32,6 @@ codeList=" makeOneUniverse.sh *py ../toolbox univ_base$LEVEL.ics.conf batchMakeU
 date
 echo S: SLURM_CLUSTER_NAME=$SLURM_CLUSTER_NAME  numNodes=$SLURM_NNODES totTasks=$G
 #env|grep SLURM
-
 
 srcDir=`pwd`
 wrkDir=$SCRATCH/${coreN}
@@ -45,7 +44,8 @@ echo S: PWD=`pwd`
 #( sleep 600; echo `hostname` ; date; free -g; top ibn1)&
 #( sleep 1200; echo `hostname` ; date; free -g; top ibn1)&
 
-time srun -n $G -l $ENGINE  ./makeOneUniverse.sh  
+time srun -n $G -l $ENGINE  ./makeOneUniverse.sh
+wait
 echo S:uni-done
 
 # mv slurm log to final destination - it is alwasy a job-array

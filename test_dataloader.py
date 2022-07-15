@@ -2,6 +2,10 @@
 """ 
 
 read test data from HD5
+ ./test_dataloader.py   --dataName  univL7cola_dm2d_202204_c20 --facility corigpu -g 1
+
+ ./test_dataloader.py   --dataName  univL9cola_dm2d_202204_c30 --facility corigpu -g 1
+
 
 """
 
@@ -16,8 +20,7 @@ import  time
 import sys,os
 from toolbox.Util_IOfunc import read_yaml, write_yaml
 from toolbox.Dataloader_H5 import get_data_loader
-
-
+import numpy as np
 import argparse
 
 #...!...!..................
@@ -25,7 +28,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--design", default='dev4', help='[.hpar.yaml] configuration of model and training')
 
-    parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
+    parser.add_argument("--dataName",default="univL7cola_dm2d_202204_c20",help="[.h5] name data  file")
     parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
     parser.add_argument("--facility", default='perlmutter', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')
@@ -65,7 +68,7 @@ if __name__ == '__main__':
     for x in ["D_LR","G_LR"]:
         params['train_conf'][x]=facCf[x]
 
-    params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
+    #?params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
 
     # refine BS for multi-gpu configuration
     tmp_batch_size=facCf['batch_size']
@@ -98,14 +101,26 @@ if __name__ == '__main__':
 
     params['shuffle']=True  
     train_loader = get_data_loader(params, 'train',verb=args.verb)
-    params['shuffle']=True # use False for reproducibility
-    valid_loader = get_data_loader(params, 'valid', verb=args.verb)
 
+    if 0: #do-valid-loader
+        params['shuffle']=True # use False for reproducibility
+        valid_loader = get_data_loader(params, 'valid', verb=args.verb)
+        logging.info('T:valid-data: %d steps'%(len(valid_loader)))
+    
     inpMD=train_loader.dataset.conf
     logging.info('T:meta-data from h5: %s'%pformat(inpMD))
 
     logging.info('T:rank %d of %d, data loaders initialized'%(params['world_rank'],params['world_size']))
     logging.info('T:train-data: %d steps, localBS=%d, globalBS=%d'%(len(train_loader),train_loader.batch_size,params['global_batch_size']))
 
-    logging.info('T:valid-data: %d steps'%(len(valid_loader)))
-    logging.info('M:done')
+
+    logging.info('M:loading completed')
+
+    print('M: ....... access 1st batch sample, imag=ln(rho+1)')
+    for lrFinImg,hrIniImg,hrFinImg in train_loader:
+        print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'max:',np.max(lrFinImg.numpy(),axis=(1,2,3)))
+        print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'max:',np.max(hrIniImg.numpy(),axis=(1,2,3)))
+        print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'max:',np.max(hrFinImg.numpy(),axis=(1,2,3)))
+        break
+
+    print('M: done')

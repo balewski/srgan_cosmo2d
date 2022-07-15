@@ -7,8 +7,6 @@ See for the details: https://docs.google.com/document/d/1UwJzgpFdRGDVhWcpSciczOE
 module load cmem
 salloc -C amd -q bigmem -t 2:00:00
 module load pytorch
-
-
 20c*L7
 ./format_PycolaDM.py -j 58451467_1/out_[0-14] 58451467_2/out_[0-13] -p univL7
 
@@ -32,14 +30,14 @@ import os
 import argparse
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2],
+    parser.add_argument("-v","--verb",type=int,choices=[0, 1, 2],
                     help="increase output verbosity", default=1)
     parser.add_argument("-p", "--namePrefix",default="univL9",help="job name prefix")
     parser.add_argument("--rawPath",help="raw input  path",
                         default='/global/cscratch1/sd/balewski/univers2/'
                         )
     parser.add_argument("--outPath",help="output path",
-                        default='/global/cscratch1/sd/balewski/srgan_cosmo2d_data/'
+                        default='/global/cscratch1/sd/balewski/data_univ_cola_dm2d/'
                         )
     parser.add_argument("-j", "--jobIds",nargs="+",default=['58364013_4/out_[0-29]','58363933_1/out_[0-51]'],
                         help=" blank separated list of job IDs, takes *[n1-n2]")
@@ -56,7 +54,7 @@ def M_read_oneCube(jobNk,k):
     isFirst=k==0
 
     #...... split into  domains:  8/1/1
-    if k%10==0: dom='val'
+    if k%10==0: dom='valid'
     elif k%10==1: dom='test'
     else: dom='train'
     
@@ -103,8 +101,8 @@ def M_read_oneCube(jobNk,k):
         meta['packing']['raw_cube_shape']=list(cube4d.shape)
         #...... split into  domains:  8/1/1
 
-        bigD['val.hr']=np.zeros((tenCnt*dimX*nFlip,)+coreSh,dtype=cube4d.dtype)
-        bigD['test.hr']=np.zeros_like(bigD['val.hr'])        
+        bigD['valid.hr']=np.zeros((tenCnt*dimX*nFlip,)+coreSh,dtype=cube4d.dtype)
+        bigD['test.hr']=np.zeros_like(bigD['valid.hr'])        
         bigD['train.hr']=np.zeros((trainCnt*dimX*nFlip,)+coreSh,dtype=cube4d.dtype)
         for xx in bigD: print('created', xx,bigD[xx].shape)
         args.bigD=bigD
@@ -154,8 +152,9 @@ if __name__ == '__main__':
     print('M: end bigIdx',args.bigIdx)
 
     args.outMD['packing']['big_index']=args.bigIdx
- 
-    outN='%scola_dm_202204_c%d.h5'%(args.namePrefix,args.tenCnt*10)
+    args.outMD['project_dm']['author']='Jan'
+    
+    outN='%scola_dm2d_202204_c%d.h5'%(args.namePrefix,args.tenCnt*10)
     outF=os.path.join(args.outPath,outN)
     write3_data_hdf5(args.bigD,outF,metaD=args.outMD, verb=1)
 

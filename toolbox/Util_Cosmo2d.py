@@ -1,19 +1,20 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 import scipy.stats as stats
+from pprint import pprint
 
 #...!...!..................
 def prep_fieldMD(inpMD,trainPar):
     # assembly meta data for FFT
-    
-    space_step=inpMD['cell_size']
-    space_bins=trainPar['hr_size']
-    upscale=trainPar['upscale_factor']
+    cfds=trainPar['data_shape']
+    space_step=int(inpMD['setup']['boxlength'])/ cfds['hr_size']
+    space_bins=cfds['hr_size']
+    upscale=cfds['upscale_factor']
     fieldMD={'space_step_unit':'1/Mpc','upscale_factor':upscale}
     kr='hr'
     fieldMD[kr]={'space_bins':space_bins}
     fieldMD[kr]['space_step']=space_step
-    fieldMD['sr']=fieldMD['hr']
+    #XfieldMD['sr']=fieldMD['hr']
     kr='lr'
     fieldMD[kr]={'space_bins':space_bins//upscale}
     fieldMD[kr]['space_step']=space_step*upscale
@@ -87,7 +88,7 @@ def interpolate_2Dfield(A,nZoom=2):
     
 
 #...!...!..................
-def random_crop_WHC(image,tgt_size):
+def XXrandom_crop_WHC(image,tgt_size):
     org_size=image.shape[0]
     maxShift=org_size - tgt_size
     #print('RC2d:',org_size,tgt_size, maxShift)
@@ -99,7 +100,7 @@ def random_crop_WHC(image,tgt_size):
     return  np.reshape(image,(tgt_size,tgt_size,1))
 
 #...!...!..................
-def random_flip_rot_WHC(image,prob=0.5):
+def random_flip_rot_WHC(image,prob=0.5): # format HWC, retain C-axis
     if np.random.uniform() <prob:  image=np.flip(image,axis=0)
     if np.random.uniform() <prob:  image=np.flip(image,axis=1)
     if np.random.uniform() <prob:  image=np.swapaxes(image,0,1)

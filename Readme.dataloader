@@ -1,0 +1,14 @@
+Dataloader expects 2D the HR-images stack one another and split into train/val/test domains.
+E.g. small file:
+/global/cscratch1/sd/balewski/srgan_cosmo2d_data/univL9cola_dm2d_202204_c30.h5
+h5-write : val.hr (4608, 512, 512, 2) uint8
+h5-write : test.hr (4608, 512, 512, 2) uint8
+h5-write : train.hr (36864, 512, 512, 2) uint8
+The last dimR 0: zRed=50, 1:zRed=0.
+
+
+To test dataloader iteslf, run this program:
+
+ ./test_dataloader.py --facility corigpu -g 1
+
+It uses dev4-config, derived from hpoa_e5d6e97b.hpar.yaml

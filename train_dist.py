@@ -16,7 +16,7 @@ ssh pm
 export MASTER_ADDR=`hostname`
 export SLURM_NTASKS=1
 export SLURM_PROCID=0
-export SLURM_LOCALID=0
+
 time shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
 >>> real	4m22.124s
 
@@ -72,7 +72,7 @@ def get_parser():
   parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-  parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter','crusher'],help='computing facility where code is executed')  
+  parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter','crusher','corigpu'],help='computing facility where code is executed')  
   parser.add_argument("--expName", default='exp03', help="output main dir, train_summary stored there")
   parser.add_argument("-v","--verbosity",type=int,choices=[0,1,2,3], help="increase output verbosity", default=1, dest='verb')
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
       #os.environ['MASTER_ADDR'] = os.environ['SLURM_LAUNCH_NODE_IPADDR']
       os.environ['RANK'] = os.environ['SLURM_PROCID']
       os.environ['WORLD_SIZE'] = os.environ['SLURM_NTASKS']
-      params['local_rank'] = 0 # fixed 2022-03  int(os.environ['SLURM_LOCALID'])
+      params['local_rank'] = 0 
 
     params['master_name']=os.environ['MASTER_ADDR']
     params['world_size'] = int(os.environ['WORLD_SIZE'])
