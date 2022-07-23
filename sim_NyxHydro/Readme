@@ -1,0 +1,47 @@
+https://docs.google.com/document/d/14ngh2b3FgMeJ9kAQ763Xq9tI1WnEuOeu8H1yGvO314s/edit?usp=sharing
+
+
+****** Production scale setup to simulate lost of universes,  July 2022  *******
+(update:  save z=200,5,3)
+nyx.plot_z_values   = 200.0 5.0 3.0
+# Zarija:   z=5 would roughly be half-way (in time) between z=3 and z=200.  z=9 is roughly half-way between z=5 and z=200, or a quarter-way to z=3, and z=15 would roughly be 1/8 of the way to z=3...
+
+Steps:
+pass_1 : generate initial condition for M=10 universes (1 job)
+pass_2 : 
+evolve each universe as a job 
+ convert  nyx→ hd5 
+ aggregate 4 cubes as single hd5+metadata 
+pass_3 : format hd5 for ML, split on train/val/test
+
+Paths:
+binaries from Zarija/Hyunbea
+/global/homes/b/balewski/prje/simu_Nyx2022_exec
+my driving scripts  (github)
+/global/homes/b/balewski/srgan_cosmo2d/sim_NyxHydro
+
+- - - - - - - - - - - - - - -- - - - - 
+
+pass_1  :  generate initial cubes
+
+execPath=/global/homes/b/balewski/prje/simu_Nyx2022_exec
+srcPath=/global/homes/b/balewski/srgan_cosmo2d/sim_NyxHydro
+outPath=/pscratch/sd/b/balewski/tmp_NyxProd/${jid}_${numUniv}univ      
+
+Slurm: batch_cosmicIC.slr
+shell: init_multi_CosmicIC.sh
+CosmicIC_input.templ
+
+out path: 
+
+- - - - - - - - - - - - - - -- - - - - 
+
+pass_2  :   evolve both  & convert to 4 HD5
+Slurm : batch_Nyx_LRandHR.slr   outPath execPath
+is submitted by step_1 automatically
+
+Verification (and plotting) of individual cubes:
+inspect_NyxHydroH5.py*
+plot_NyxHydroH5.py*
+
+

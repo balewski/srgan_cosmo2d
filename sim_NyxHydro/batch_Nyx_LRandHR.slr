@@ -1,0 +1,38 @@
+#!/bin/bash
+#SBATCH -A m3363_g
+#SBATCH -q regular  -t 2:00:00
+#SBATCH -C gpu
+#-SBATCH -q debug  -t 20:00
+#-SBATCH -A nstaff_g -J nyx_sim
+#SBATCH -N 4
+#SBATCH --ntasks-per-node=4
+#SBATCH -c 32
+#SBATCH --gpus-per-task=1
+#SBATCH --gpu-bind=map_gpu:0,1,2,3
+#SBATCH --mem-bind=local
+module load PrgEnv-gnu cudatoolkit cmake cpe-cuda gcc/10.3.0
+
+date
+outPath=$1
+echo outPath=${outPath}=
+
+cd $outPath
+pwd
+
+echo evolve LR image 
+time srun ./Nyx3d.gnu.TPROF.MTMPI.OMP.CUDA.ex Nyx_input_LR  >& log.evol_lr
+date
+
+echo evolve HR image 
+time srun ./Nyx3d.gnu.TPROF.MTMPI.OMP.CUDA.ex Nyx_input_HR  >& log.evol_hr
+date
+
+pwd
+echo converting LR to H5
+time ./convertLR2hdf5.sh 
+time ./convertHR2hdf5.sh 
+
+echo list produced h5
+ls -lh *h5
+
+# salloc -C gpu -q interactive -t4:00:00   --ntasks-per-node=4 --gpus-per-task=1  --gpu-bind=map_gpu:0,1,2,3  --mem-bind=local   -A nstaff_g   -N 4
