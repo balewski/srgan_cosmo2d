@@ -55,9 +55,11 @@ class Plotter_Backbone(object):
         #for arg in vars(args):  print( 'plArg:',arg, getattr(args, arg))
         self.outPath=args.outPath
         self.prjName=args.prjName
-        if args.formatVenue=='poster':
-            roys_fontset(plt)
-        
+        try:
+            if args.formatVenue=='poster':
+                roys_fontset(plt)
+        except:
+            a=0
         
         
     #............................
