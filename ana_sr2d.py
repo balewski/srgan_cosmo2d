@@ -30,8 +30,8 @@ def get_parser():
     parser.add_argument("-s","--genSol",default="last",help="generator solution, e.g.: epoch123")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
     parser.add_argument("-d","--dataPath",
-                        default='/global/homes/b/balewski/prje/tmp_srganA/'
-                        #default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        #default='/global/homes/b/balewski/prje/tmp_srganA/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro512A/'
                         ,help='data location w/o expName')
  
     args = parser.parse_args()
@@ -138,8 +138,8 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
         data=fieldD['rho+1'][kr]  # density, keep '+1'  
         #print('data %s %s '%(kr,str(data.shape)))
         jy,jx,zmax=max_2d_index(data)
-        if 'hr' in kr: kr2='hr'
-        else: kr2='lr'
+        if 'hr' in kr: kr2='HR'
+        else: kr2='LR'
         print(jy,jx,kr,kr2,'max:',zmax,np.min(data),np.sum(data))
         metaD[kr]['zmax_xyz']=[jx,jy,zmax]
         img=np.log(data)  
@@ -148,7 +148,7 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
         x,y=density_2Dfield_numpy(img,10.)
         metaD[kr]['density']=[x,y]
         
-        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=auxMD[kr2]['space_step'])
+        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=auxMD[kr2])
         fieldD['ln fftA2+1'][kr]=np.log(fftA2+1)
         metaD[kr]['power']=[kphys,P]
     return metaD
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     #1inpF='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp23j/monitor/valid-adv-epoch0.h5'
     bigD,predMD=read3_data_hdf5(inpF)
-    print('predMD:',list(predMD))
+    #print('predMD:',list(predMD))
     if args.verb>1:pprint(predMD)
     #predMD['field2d']['ilr']=copy.deepcopy(predMD['field2d']['hr'])  # add infor ILR
     
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     #1fL=['lr','ilr','sr','hr']
 
     #pprint(predMD['field2d']); ok99
-    metaD=post_process_srgan2D_fileds(fieldD,predMD['field2d'])
+    metaD=post_process_srgan2D_fileds(fieldD,predMD['inpMD']['cell_size']) #predMD['field2d'])
     
 
     # - - - - - Plotting - - - - - 

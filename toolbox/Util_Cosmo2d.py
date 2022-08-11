@@ -3,8 +3,9 @@ from scipy.interpolate import RegularGridInterpolator
 import scipy.stats as stats
 from pprint import pprint
 
+
 #...!...!..................
-def prep_fieldMD(inpMD,trainPar):
+def XXprep_fieldMD(inpMD,trainPar):
     # assembly meta data for FFT
     cfds=trainPar['data_shape']
     space_step=int(inpMD['setup']['boxlength'])/ cfds['hr_size']
@@ -100,14 +101,14 @@ def XXrandom_crop_WHC(image,tgt_size):
     return  np.reshape(image,(tgt_size,tgt_size,1))
 
 #...!...!..................
-def random_flip_rot_WHC(image,prob=0.5): # format HWC, retain C-axis
-    if np.random.uniform() <prob:  image=np.flip(image,axis=0)
-    if np.random.uniform() <prob:  image=np.flip(image,axis=1)
-    if np.random.uniform() <prob:  image=np.swapaxes(image,0,1)
+def random_flip_rot_WHC(image,rndV,prob=0.5): # format HWC, retain C-axis
+    if rndV[0] <prob:  image=np.flip(image,axis=0)
+    if rndV[1] <prob:  image=np.flip(image,axis=1)
+    if rndV[2] <prob:  image=np.swapaxes(image,0,1)
     return image
 
 #...!...!....................
-def rebin_WHC(cube,nReb):  # shape: WHC
+def XXrebin_WHC(cube,nReb):  # shape: WHC
     # rebin only over axis=0,1; retain the following axis unchanged
     assert cube.ndim==3
     # cube must be symmetric

@@ -26,9 +26,9 @@ import argparse
 #...!...!..................
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--design", default='dev4', help='[.hpar.yaml] configuration of model and training')
+    parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
-    parser.add_argument("--dataName",default="univL7cola_dm2d_202204_c20",help="[.h5] name data  file")
+    parser.add_argument("--dataName",default="sliced-Nyx2022a-c14",help="[.h5] name data  file")
     parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
     parser.add_argument("--facility", default='perlmutter', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     blob.pop('Defaults')
     params.update(blob)
     params['design']=args.design
-
+   
     #print('M:params');pprint(params)#tmp
     #... propagate facility dependent config
     params['facility']=args.facility
@@ -79,7 +79,7 @@ if __name__ == '__main__':
       params['local_batch_size'] = int(tmp_batch_size//params['world_size'])
       params['global_batch_size'] = tmp_batch_size
 
-
+    #pprint(params); ok120
     # capture other args values
     params['h5_path']=facCf['data_path']
     params['h5_name']=args.dataName+'.h5'
@@ -98,11 +98,11 @@ if __name__ == '__main__':
 
     logging.info('T:rank %d of %d, prime data loaders'%(params['world_rank'],params['world_size']))
 
-
+    
     params['shuffle']=True  
     train_loader = get_data_loader(params, 'train',verb=args.verb)
 
-    if 0: #do-valid-loader
+    if 1: #do-valid-loader
         params['shuffle']=True # use False for reproducibility
         valid_loader = get_data_loader(params, 'valid', verb=args.verb)
         logging.info('T:valid-data: %d steps'%(len(valid_loader)))
@@ -115,12 +115,14 @@ if __name__ == '__main__':
 
 
     logging.info('M:loading completed')
-
+    
     print('M: ....... access 1st batch sample, imag=ln(rho+1)')
-    for lrFinImg,hrIniImg,hrFinImg in train_loader:
-        print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'max:',np.max(lrFinImg.numpy(),axis=(1,2,3)))
+    for hrIniImg,lrFinImg,hrFinImg in train_loader:
+        
         print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'max:',np.max(hrIniImg.numpy(),axis=(1,2,3)))
+        print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'max:',np.max(lrFinImg.numpy(),axis=(1,2,3)))
         print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'max:',np.max(hrFinImg.numpy(),axis=(1,2,3)))
+
         break
 
     print('M: done')

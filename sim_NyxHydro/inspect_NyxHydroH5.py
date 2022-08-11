@@ -14,7 +14,8 @@ def read_one_nyx_h5(inpF,fieldNL,verb=1):
     cubesize=meta.pop('size')
     cubeshape=meta.pop('shape')
     meta['cell_size']=cubesize[0]/cubeshape[0]
-    meta['cell_size_unit']='Mpc/h'
+    meta['cube_size']=cubesize[0]
+    meta['size_unit']='Mpc/h'
 
     bigD={}
     for fieldN in fieldNL:

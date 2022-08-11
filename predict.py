@@ -129,7 +129,7 @@ def model_infer(model,data_loader,trainPar):
     nStep=0
     
     with torch.no_grad():
-        for lrFinImg,hrIniImg,hrFinImg in data_loader:
+        for lrFinImg,hrFinImg in data_loader:
             lrImg_dev, hrImg_dev = lrFinImg.to(device), hrFinImg.to(device)
             #print('P1:',hrImg.shape)
             srImg_dev = model(lrImg_dev) # THE PREDICTION      
@@ -140,18 +140,18 @@ def model_infer(model,data_loader,trainPar):
             # convert images to densities=rho+1
             lrFin=np.exp(lrFinImg.detach()).numpy()
             hrFin=np.exp(hrFinImg.detach()).numpy()
-            hrIni=np.exp(hrIniImg.detach()).numpy()
+            #1hrIni=np.exp(hrIniImg.detach()).numpy()
             srFin=np.exp(srFinImg.detach()).numpy()
 
             F.hrFin[nSamp:n2,:]=hrFin    
-            F.hrIni[nSamp:n2,:]=hrIni
+            #1F.hrIni[nSamp:n2,:]=hrIni
             F.srFin[nSamp:n2,:]=srFin
             F.lrFin[nSamp:n2,:]=lrFin
             F.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
                 
             if args.doFOM:
-                histo_dens(hrFinImg,srImg,densAll)
-                histo_power(hrFin,sr,space_step,powerAll)
+                histo_dens(hrFinImg,srFinImg,densAll)
+                histo_power(hrFinImg,srFinImg,space_step,powerAll)
                 
             # end-of-infering
             nSamp=n2
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     if args.numSamples!=None:
         trainPar['max_glob_samples_per_epoch' ] = args.numSamples
 
-    trainPar['field2d'].pop('sr')
+    #?trainPar['field2d'].pop('sr')
     print('trainMD:',list(trainMD))
     if args.verb>1:pprint(trainPar)
  
@@ -235,8 +235,8 @@ if __name__ == '__main__':
     sumRec['modelDesign']=trainMD['train_params']['myId']
     sumRec['model_path']=model_path
     sumRec['gen_sol']=sol.replace('.pth','')[2:]
-    for x in  ['sim3d','field2d']:
-        sumRec[x]=trainPar[x]
+    sumRec['inpMD']=data_loader.dataset.inpMD
+    #1for x in  ['sim3d','field2d']:   sumRec[x]=trainPar[x]
     
     if args.outPath=='same' : args.outPath=args.expPath
 

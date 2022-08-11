@@ -29,7 +29,7 @@ import argparse
 def get_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--dataName", default='NyxHydro4k_L7_dm2d_202106', help="[.h5] formatted data")
+    parser.add_argument("--dataName", default='NyxHydro4k_L9_dm2d_202106', help="[.h5] formatted data")
 
     parser.add_argument("-n", "--numSamples", type=int, default=200, help="limit samples to predict")
     parser.add_argument("--upscale", type=int, default=4, help="LR --> HR scale change")
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     inpF=os.path.join(args.dataPath,args.dataName+'.h5')
     inpD,inpMD=read3_data_hdf5(inpF)
     print('inpMD:',list(inpMD))
-    if args.verb>1:pprint(inpMD)
+    if args.verb>1:pprint(inpMD) ; exit(0)
 
     hr_size=inpMD['data_shape']['hr_size']
     assert hr_size%args.upscale==0

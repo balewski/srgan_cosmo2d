@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 '''
+?????   discard ??
  Analysis of quality of SRGAN-2D images
 
  ./ana_sr2dX.py -e exp22 -s best595

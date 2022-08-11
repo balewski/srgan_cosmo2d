@@ -72,7 +72,7 @@ class Trainer(TBSwriter):
           logging.info('T:train-data: %d steps, localBS=%d, globalBS=%d'%(len(self.train_loader),self.train_loader.batch_size,params['global_batch_size']))
           
           logging.info('T:valid-data: %d steps'%(len(self.valid_loader)))        
-          if params['verbosity']>1: logging.info('T:meta-data from h5: %s'%pformat(inpMD))
+          if params['verb']>1: logging.info('T:meta-data from h5: %s'%pformat(inpMD))
           self.add_tbsummary_record(pformat(inpMD))
           
         if params['world_rank']==0 and 0:  # only for debugging  
@@ -117,7 +117,7 @@ class Trainer(TBSwriter):
         # add models to TB - takes 1 min
         if self.isRank0:
             gr2tb=params['model_conf']['tb_model_graph']
-            (lrFinB, hrIniB,hrFinB)=next(iter(self.train_loader))            
+            (lrFinB,hrFinB)=next(iter(self.train_loader))            
             if 'G'==gr2tb:
                 t1=time.time()
                 self.TBSwriter.add_graph(self.G_model,lrFinB.float().to('cpu'))
@@ -150,7 +150,7 @@ class Trainer(TBSwriter):
         # initialize early-stop aborting if discr(G) is stuck for too many epochs
         esCf=trCf['early_stop_discr']
         self.earlyStopRing=RingAverageCheck(
-            func= lambda avr,std: avr+std < esCf['discr_G_thres'],
+            func= lambda avr,std: avr+std < esCf['G_thres'],
             numCell=esCf['ring_size/epochs'],initVal=0.2)  # init at large values to not trip during filling of the ring
 
         # initialize robust saving of best solution
@@ -179,6 +179,7 @@ class Trainer(TBSwriter):
             self.add_tbsummary_record(str(self.G_model.short_summary()))
             self.add_tbsummary_record(str(self.D_model.short_summary()))
 
+            
             Gpr=params['model_conf']['G']['summary_verbosity']
             Dpr=params['model_conf']['D']['summary_verbosity']
             cfds=params['data_shape']
@@ -289,7 +290,7 @@ class Trainer(TBSwriter):
             locValSamp=len(self.valid_loader)*self.valid_loader.batch_size
             kfac=self.params['world_size']/1.
 
-        #  A A A A A A A A   D D D D D D   V V V V V   E E E E E   R R R R  S     
+        #  A A A A A    D D D D D   V V V V V   E E E E E   R R R R   S S S S      
         # Training the adversarial network stage.
         for epoch in range(start_epoch, adv_epochs):
             custom_LR_schedule(epoch,self.G_opt,trCf['G_LR'],adv_epochs)
@@ -402,7 +403,7 @@ class Trainer(TBSwriter):
         # Set generator network in training mode.
         self.G_model.train()
         cnt={'pixel_loss':0.}
-        for index, (lrFin, hrIni, hrFin) in enumerate(self.train_loader):
+        for index, (lrFin, hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
             lrFin = lrFin.to(self.device)
             hrFin = hrFin.to(self.device)
@@ -461,7 +462,7 @@ class Trainer(TBSwriter):
         
         # clear example of .detach() logic: https://github.com/devnag/pytorch-generative-adversarial-networks/blob/master/gan_pytorch.py
         
-        for index, (lrFin, hrIni, hrFin) in enumerate(self.train_loader):
+        for index, (lrFin,  hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
             lrFin = lrFin.to(self.device)
             hrFin = hrFin.to(self.device)
@@ -589,7 +590,7 @@ class Trainer(TBSwriter):
         self.G_model.eval()
         with torch.no_grad():
             cnt={'psnr':0.}
-            for index, (lrFin, _, hrFin) in enumerate(self.valid_loader):
+            for index, (lrFin, hrFin) in enumerate(self.valid_loader):
                 # Copy the data to the specified device.
                 lrFin = lrFin.to(self.device)
                 hrFin = hrFin.to(self.device)
@@ -620,8 +621,7 @@ class Trainer(TBSwriter):
                             z=y.detach().cpu().numpy()
                             bigD[x]=np.exp(z).astype(np.float32)
                         metaD={}
-                        for x in ['sim3d','field2d']:
-                            metaD[x]=self.params[x]
+                        #1for x in ['sim3d','field2d']:  metaD[x]=self.params[x]
                         metaD['domain']='valid_batch'
                         metaD['exp_name']=self.params['exp_name']
                         metaD['numSamples']=int(lrFin.shape[0])

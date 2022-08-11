@@ -68,7 +68,8 @@ class Discriminator(nn.Module):
         reluSlope=0.2
         
         self.inp_shape=(num_inp_chan,num_hr_bins,num_hr_bins)
-
+        if self.verb>2: print('D-net inp_dim=', self.inp_shape)
+        
         # .....  CNN layers
         hpar1=conf['conv_block']
         self.cnn_block = nn.ModuleList()
@@ -126,7 +127,7 @@ class Discriminator(nn.Module):
         x = torch.flatten(x, 1)
         if self.verb>2: print('DFb:',x.shape)
         for i,lyr in enumerate(self.fc_block):
-            if self.verb>2: print('DFc: ',i,lyr.shape)
+            if self.verb>2: print('DFc: ',i,lyr)
             x=lyr(x)
             if self.verb>2: print('DFd: ',i,x.shape)
         if self.verb>2: print('DF y',x.shape)        
@@ -168,12 +169,12 @@ class Generator(nn.Module):
         )
 
         # Upscale conv block.
-        trunk2 = []  ; assert conf['num_upsamp']==2, not_tested
+        trunk2 = []  ; assert conf['num_upsamp_bits']==2, not_tested
         upsamp_chan=conf['first_cnn_chan']*2*2  # because: PixelShuffle(2)
         # Rearranges elements in a tensor of shape (*, C * r^2, H, W) to a tensor of shape (*, C, H * r, W * r), where r is an upscale factor.
 
  
-        for _ in range(conf['num_upsamp']):
+        for _ in range(conf['num_upsamp_bits']):
             trunk2.append(nn.Conv2d(conf['first_cnn_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
             trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride1/2
             trunk2.append(nn.PReLU())

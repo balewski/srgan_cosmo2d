@@ -18,7 +18,7 @@ def get_parser():
     parser.add_argument("--inpPath",default='/global/homes/b/balewski/prje/superRes-Nyx2022a/sixpack_cubes',help="sixpack HyxHydro cubes data") 
         
     args = parser.parse_args()    
-    args.outPath=os.path.join(args.inpPath,'../')
+    args.outPath=os.path.join(args.inpPath,'../xx')
     
     for arg in vars(args):  print( 'myArgs:',arg, getattr(args, arg))
     assert os.path.exists(args.inpPath)
@@ -72,8 +72,9 @@ def scan_input():
 if __name__ == "__main__":
     args=get_parser()
     sixL=scan_input()
+    #sixL=sixL[:2]
     print('M: found %d six-cubes'%len(sixL))
-    domSplit={0:['train',12],12:['val',1],13:['test',1]}
+    domSplit={0:['train',12],12:['valid',1],13:['test',1]}
     
     domD={}
     seedL=[]
@@ -101,8 +102,13 @@ if __name__ == "__main__":
 
     # finalize meta-data    
     metaD['seeds']=seedL
-    nSix=len(seedL)
+    if 1: # cleanup post-factum
+        metaD['size_unit']=metaD.pop('cell_size_unit')
+        metaD['cube_size']=10.
+        
+        
     pprint(metaD)
+    nSix=len(seedL)
     outF=os.path.join(args.outPath,'sliced-Nyx2022a-c%d.h5'%nSix)
     write4_data_hdf5(domD,outF, metaD=metaD)
     print('M: done, nSix=',nSix)

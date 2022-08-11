@@ -28,8 +28,8 @@ def get_parser():
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
     parser.add_argument("-d","--dataPath",
-                        default='/global/homes/b/balewski/prje/tmp_srganA/'
-                        #default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        #default='/global/homes/b/balewski/prje/tmp_srganA/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro512A/'
                         ,help='data location w/o expName')
  
     args = parser.parse_args()
@@ -157,21 +157,23 @@ def plot_integrals(ax,HR,SR,tit):
 if __name__ == "__main__":
     args=get_parser()
     plt=mini_plotter(args)
-    
+
+
     #.......... input data
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
-    fieldD,expMD=read3_data_hdf5(inpF)
+    fieldD,predMD=read3_data_hdf5(inpF)
     # filedD contains: rho+1
-    print('expMD:'); pprint(expMD)
+    #print('expMD:'); pprint(predMD)
 
     # assembly meta data
 
     #.... recover  data
     
-    HR=fieldD['hr'][:,0]  # skip C-index, for now it is 1 channel
-    SR=fieldD['sr'][:,0]
+    HR=fieldD['hrFin'][:,0]  # skip C-index, for now it is 1 channel
+    SR=fieldD['srFin'][:,0]
     
-    space_step=expMD['field2d']['hr']['space_step']  # the same for SR
+    #space_step=eMD['field2d']['hr']['space_step']  # the same for SR
+    space_step=predMD['inpMD']['cell_size']['HR']  # the same for SR
     nSamp=HR.shape[0]
 
     R=[] # rho-space
@@ -221,7 +223,7 @@ if __name__ == "__main__":
             plot_stats(ax,kidx,P,Pmed,Pavr,Pstd)
             tit='%s,  relative Power Spectrum'%(tagN)
             ax.set(title=tit, xlabel='wavenumber index',ylabel=' P(k)SR / P(k)HR' )
-            txt2='design='+expMD['modelDesign']
+            txt2='design='+predMD['modelDesign']
             ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
 
         save_fig(figId,ext=tagN)

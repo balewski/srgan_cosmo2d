@@ -17,8 +17,8 @@ export MASTER_ADDR=`hostname`
 export SLURM_NTASKS=1
 export SLURM_PROCID=0
 
-time shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design dev0 --facility perlmutter  --expName exp07
->>> real	4m22.124s
+time shifter  --image=nersc/pytorch:ngc-21.08-v2 ./train_dist.py  --design benchmk_50eaf423 --facility perlmutter  --numGlobSamp 256 --epochs 10  --expName exp07
+>>> 
 
 
 Run on 4 A100 on PM:
@@ -29,12 +29,14 @@ salloc -N1
  export MASTER_ADDR=`hostname`  
 srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  
 
+If you run ./batshShivtr.slr  add before
+export SLURM_ARRAY_JOB_ID=555
+export SLURM_ARRAY_TASK_ID=44
+
 (note: exp2 is defined twice - it is convenient for batch jobs)
 
 On Summit: salloc, as corigpu, use facility=summitlogin
 
-Production job 
-srun -n 16 shifter --image=nersc/pytorch:ngc-21.08-v2  ./train_dist.py   --design dev7a  --facility perlmutter  --expName exp5a
 
 ***** Display TB *****
 ssh pm-tb
@@ -69,7 +71,7 @@ def get_parser():
   parser = argparse.ArgumentParser()
   parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
-  parser.add_argument("--dataName",default="dm_density_4096",help="[.h5] name data  file")
+  parser.add_argument("--dataName",default="sliced-Nyx2022a-c14",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
   parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter','crusher','corigpu'],help='computing facility where code is executed')  
