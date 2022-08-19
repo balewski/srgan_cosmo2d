@@ -74,13 +74,10 @@ class Dataset_h5_srgan2D(object):
     def __init__(self, conf,domain,verb=1):
         conf['domain']=domain
        
-        #conf['rec_name']='hr_'+domain
-        #pprint(conf); ok99
-        # val_baryon_density_HR_z3
-
-        fieldN='baryon_density'; zIni='z200'; zFin='z3'  # tmp --> config
-        fieldN='dm_density'; zIni='z5' # tmp --> config
-                
+        fieldN=conf['data_conf']['field_name']
+        zIni=conf['data_conf']['zred_ini']
+        zFin=conf['data_conf']['zred_fin']
+        
         conf['rec_hrIni']='%s_%s_HR_%s'%(domain,fieldN,zIni)
         conf['rec_lrFin']='%s_%s_LR_%s'%(domain,fieldN,zFin)
         conf['rec_hrFin']='%s_%s_HR_%s'%(domain,fieldN,zFin)
@@ -236,8 +233,8 @@ class Dataset_h5_srgan2D(object):
         lrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(lrFin+1. )) )
         hrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(hrFin+1. )) )
         
-        # fp32-prec data #,hrIniImg.float(),
-        return lrFinImg.float(),hrFinImg.float()
+        # fp32-prec data 
+        return hrIniImg.float(),lrFinImg.float(),hrFinImg.float()
     
         # finally cast output to fp16 - Jan could not make model to work with it
         #return lrFinImg.half(),hrIniImg.half(),hrFinImg.half()

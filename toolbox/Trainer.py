@@ -117,10 +117,10 @@ class Trainer(TBSwriter):
         # add models to TB - takes 1 min
         if self.isRank0:
             gr2tb=params['model_conf']['tb_model_graph']
-            (lrFinB,hrFinB)=next(iter(self.train_loader))            
+            (hrIniB,lrFinB,hrFinB)=next(iter(self.train_loader))            
             if 'G'==gr2tb:
                 t1=time.time()
-                self.TBSwriter.add_graph(self.G_model,lrFinB.float().to('cpu'))
+                self.TBSwriter.add_graph(self.G_model,hrIniB.float().to('cpu'),lrFinB.float().to('cpu'))
                 t2=time.time()
                 print('TB G-graph done elaT=%.1f'%(t2-t1))
             if 'D'==gr2tb:
@@ -403,8 +403,9 @@ class Trainer(TBSwriter):
         # Set generator network in training mode.
         self.G_model.train()
         cnt={'pixel_loss':0.}
-        for index, (lrFin, hrFin) in enumerate(self.train_loader):
+        for index, (hrIni, lrFin, hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
+            hrIni = hrIni.to(self.device)
             lrFin = lrFin.to(self.device)
             hrFin = hrFin.to(self.device)
             
@@ -416,7 +417,7 @@ class Trainer(TBSwriter):
                 self.G_model.zero_grad()
                 
             # Generate super-resolution images.
-            srFin = self.G_model(lrFin)
+            srFin = self.G_model([hrIni,lrFin])
             
             # Calculate the difference between the super-resolution image and the high-resolution image at the pixel level.
             pixel_loss = self.pixel_criterion(srFin, hrFin)
@@ -462,8 +463,9 @@ class Trainer(TBSwriter):
         
         # clear example of .detach() logic: https://github.com/devnag/pytorch-generative-adversarial-networks/blob/master/gan_pytorch.py
         
-        for index, (lrFin,  hrFin) in enumerate(self.train_loader):
+        for index, (hrIni, lrFin,  hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
+            hrIni = hrIni.to(self.device)
             lrFin = lrFin.to(self.device)
             hrFin = hrFin.to(self.device)
             label_size = lrFin.size(0)
@@ -487,7 +489,7 @@ class Trainer(TBSwriter):
             
             #....  1B: Train D on fake
             # Generate super-resolution images.
-            sr = self.G_model(lrFin)  # d_fake_data
+            sr = self.G_model([hrIni,lrFin])  # d_fake_data
             # Calculate the loss of the discriminator model on the super-resolution image.
             output = self.D_model(sr.detach()) # d_fake_decision, detach to avoid training G on these labels 
             d_loss_sr = self.adversarial_criterion(output, fake_label) # d_fake_error 
@@ -590,12 +592,13 @@ class Trainer(TBSwriter):
         self.G_model.eval()
         with torch.no_grad():
             cnt={'psnr':0.}
-            for index, (lrFin, hrFin) in enumerate(self.valid_loader):
+            for index, (hrIni,lrFin, hrFin) in enumerate(self.valid_loader):
                 # Copy the data to the specified device.
+                hrIni = hrIni.to(self.device)
                 lrFin = lrFin.to(self.device)
                 hrFin = hrFin.to(self.device)
                 # Generate super-resolution images.
-                sr = self.G_model(lrFin)
+                sr = self.G_model([hrIni,lrFin])
                 # Calculate the PSNR indicator.
                 mse_loss = self.psnr_criterion(sr, hrFin)
                 psnr_value = 10 * torch.log10(1 / mse_loss)                

@@ -88,7 +88,7 @@ class Plotter(Plotter_Backbone):
         self.plt.figure(figId,facecolor='white', figsize=(15,4))
         ax=self.plt.subplot(nrow,ncol,1)
         for i,kr in  enumerate(fL[2:]):
-            if 'sr' in kr: continue
+            #if 'sr' in kr: continue
             #if 'Ini' in kr: continue #tmp
             data=fieldD['rho+1'][kr][jy_hr]
             binX=np.arange(data.shape[0])
@@ -136,7 +136,8 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
     for kr in fL:
         metaD[kr]={}
         data=fieldD['rho+1'][kr]  # density, keep '+1'  
-        #print('data %s %s '%(kr,str(data.shape)))
+        #print('data %s %s mx=%.1f std=%.1f'%(kr,str(data.shape),np.max(data),np.std(data)))
+        
         jy,jx,zmax=max_2d_index(data)
         if 'hr' in kr: kr2='HR'
         else: kr2='LR'
@@ -162,43 +163,32 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
 if __name__ == "__main__":
     args=get_parser()
     
-    # replace letters by boolen
-    #XPLOT={'image':'a', 'fft':'b', 'skewer':'c', 'rho+power':'c'  }
-    #Xfor k in PLOT: PLOT[k]=  PLOT[k] in args.showPlots
-
-    #Xplt=mini_plotter(args)
-    
     #.......... input data
     #inpF=os.path.join(args.expPath,'pred-test-%s.h5'%args.genSol)
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
-    #1inpF='/global/homes/b/balewski/prje/tmp_NyxHydro4kB/manual/exp23j/monitor/valid-adv-epoch0.h5'
+    
     bigD,predMD=read3_data_hdf5(inpF)
     #print('predMD:',list(predMD))
     if args.verb>1:pprint(predMD)
     #predMD['field2d']['ilr']=copy.deepcopy(predMD['field2d']['hr'])  # add infor ILR
     
     # stage data
-    #fL=['lr','ilr','sr','hr']
     fL=[ 'lrFin', 'ilrFin','hrIni', 'hrFin', 'srFin']
 
     fieldD={'ln rho+1':{}, 'ln fftA2+1':{}}
     fieldD['rho+1']={ xr:bigD[xr][args.index][0] for xr in fL}  # skip C-index
 
-    #tmp
-
     #1fieldD['rho+1']['ilr']=fieldD['rho+1']['sr']
 
     #pprint(predMD['field2d'])
     
-    #auxD={}
-    #auxD={x:[x]  for x in fL} 
-    #tmp
     #1auxD['ilr']=auxD['hr']
     #1fL=['lr','ilr','sr','hr']
 
     #pprint(predMD['field2d']); ok99
     metaD=post_process_srgan2D_fileds(fieldD,predMD['inpMD']['cell_size']) #predMD['field2d'])
-    
+    #print('M:fdk',fieldD.keys())
+    #print('M:fdk2',fieldD['ln rho+1'].keys())
 
     # - - - - - Plotting - - - - - 
     plDD={}
@@ -213,121 +203,3 @@ if __name__ == "__main__":
    
     plot.display_all('ana_img%d'%args.index)
      
-    if PLOT['image']: # - - - -  plot images - - - - 
-        #ncol,nrow=4,1; xyIn=(17,3.8); figId=4
-         save_fig(figId,ext=ext,png=png)
-
-    if PLOT['fft']: # - - - -  plot fft-images - - - - 
-        ncol,nrow=3,1; xyIn=(15,5); figId=8
-        plt.figure(figId,facecolor='white', figsize=xyIn)
-        for i,kr in  enumerate(fL[1:]):
-            ax=plt.subplot(nrow,ncol,1+i)
-            img=fieldD['ln fftA2+1'][kr]
-            zd=np.min(img);  zu=np.max(img); zm=np.mean(img); 
-            print('fftImg',kr,zd,zm,zu)
-            ax.imshow(img,origin='lower', cmap ='Paired')
-            ax.set_aspect(1.)           
-            tit='ln(abs(FFT)+1) %s idx=%d  size=%s'%(kr,args.index,str(img.shape))
-            ax.set(title=tit)
-            if i==0:
-                ax.axhline(64,linestyle='--')
-                ax.axvline(64,linestyle='--')
-                #ax.set_xlim(0,64); ax.set_ylim(0,64)
-                
-        save_fig(figId,ext=ext,png=png)
-
-    if PLOT['skewer']: # - - - -  plot skewer - - - -
-        jx_hr,jy_hr=auxD['hr']['zmax_xyz'][:2]
-        ncol,nrow=1,1; figId=5
-        plt.figure(figId,facecolor='white', figsize=(15,4))
-        ax=plt.subplot(nrow,ncol,1)
-        for i,kr in  enumerate(fL[1:]):
-            data=fieldD['rho+1'][kr][jy_hr]
-            binX=np.arange(data.shape[0])
-            hcol=plDD['hcol'][kr]
-            ax.step(binX,data,where='post',label=kr,color=hcol,lw=1)
-        ax.axvline(jx_hr,linewidth=1.,color='m',linestyle='--')
-        ax.grid()
-        ax.set_yscale('log')
-        tit='%s  idx=%d  jy_hr=%d'%(kr,args.index,jy_hr)
-        ax.set(title=tit, ylabel='1+rho')
-        ax.legend(loc='best')
-
-        save_fig(figId,ext=ext,png=png)
-        
-    if PLOT['rho+power']: 
-        ncol,nrow=2,2; figId=6
-        plt.figure(figId,facecolor='white', figsize=(10,8))
-
-        # - - - -  density histo - - - - 
-        ax=plt.subplot(nrow,ncol,1)
-        for i,kr in  enumerate(fL):
-            img=fieldD['ln rho+1'][kr]
-            hcol=plDD['hcol'][kr]
-            x,y=auxD[kr]['density']
-            ax.step(x,y,where='post',label=kr,color=hcol)
-        ax.set_yscale('log')
-        ax.grid()
-        tit='Density,  image idx=%d '%(args.index)
-        ax.set(title=tit, xlabel=r'$ln(1+\rho)$',ylabel='num bins')
-        ax.legend(loc='best', title='img type')
-
-        if 1: # relative density
-            ax=plt.subplot(nrow,ncol,3)
-            x,y_hr=auxD['hr']['density']
-            _,y_sr=auxD['sr']['density']
-            _,y_ilr=auxD['ilr']['density']
-            
-            s2h=y_sr/y_hr
-            il2h=y_ilr/y_hr
-            ax.step(x,il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')           
-            ax.step(x,s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
-            ax.grid()
-            tit='Relative density,  image idx=%d '%(args.index)
-            ax.set(title=tit, xlabel=r'$ln(1+\rho)$',ylabel='SR / HR')
-            ax.axhline(1.,linewidth=1., linestyle='--', color='k')
-            ax.set_ylim(0.4,1.6)
-            ax.legend(loc='best')
-            #print('xx',x)
-            #print('hr',y_hr)
-            #print('sr',y_sr)
-        
-        # .......power spectrum
-        ax=plt.subplot(nrow,ncol,2)
-        for i,kr in  enumerate(fL):
-            kphys,P=auxD[kr]['power']
-            hcol=plDD['hcol'][kr]
-            ax.step(kphys,P ,where='post',label=kr,color=hcol)
-        tit=r'Power Spectrum, FFT($\rho+1$), image idx=%d '%(args.index)
-        ax.set(title=tit, xlabel='wavenumber (1/Mpc)',ylabel='P(k)')
-        ax.legend(loc='best',title='img type')
-        ax.grid()
-        #ax.set_xscale('log');
-        ax.set_yscale('log')
-        y1=np.min(auxD['hr']['power'][1])  # otherwise ilr-filed blows-up the scale
-        ax.set_ylim( y1/10.,)
-        
-        if 1: # relative power spec
-            ax=plt.subplot(nrow,ncol,4)
-            kphys1,y_hr=auxD['hr']['power']
-            _,y_sr=auxD['sr']['power']
-            _,y_ilr=auxD['ilr']['power']
-            kphys2,y_lr=auxD['lr']['power']
-            s2h=y_sr/y_hr
-            il2h=y_ilr/y_hr
-            n2=kphys2.shape[0] # LR data have less wavelengths
-            l2h=y_lr/y_hr[:n2]
-            ax.step(kphys2,l2h,where='post',color=plDD['hcol']['lr'],label='LR/HR') 
-            ax.step(kphys,il2h,where='post',color=plDD['hcol']['ilr'],label='ILR/HR')
-            ax.step(kphys,s2h,where='post',color=plDD['hcol']['sr'],label='SR/HR')
-            ax.grid()
-            tit='Relative power P(k),  image idx=%d '%(args.index)
-            ax.set(title=tit, xlabel='wavenumber (1/Mpc)',ylabel='relative P(k)')
-            #ax.set_xscale('log')
-            ax.legend(loc='best')
-            ax.axhline(1.,linewidth=1., linestyle='--', color='k')
-            ax.set_ylim(0.4,1.6)
-
-        save_fig(figId,ext=ext,png=png)
-
-    plt.show()

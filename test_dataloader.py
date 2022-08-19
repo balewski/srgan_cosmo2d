@@ -118,10 +118,10 @@ if __name__ == '__main__':
     
     print('M: ....... access 1st batch sample, imag=ln(rho+1)')
     k=0
-    for lrFinImg,hrFinImg in train_loader:  # hrIniImg,
+    for  hrIniImg,lrFinImg,hrFinImg in train_loader: 
 
         if 1:  # get dimensions
-            #1print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'max:',np.max(hrIniImg.numpy(),axis=(1,2,3)))
+            print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'max:',np.max(hrIniImg.numpy(),axis=(1,2,3)))
             print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'max:',np.max(lrFinImg.numpy(),axis=(1,2,3)))
         
             print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'max:',np.max(hrFinImg.numpy(),axis=(1,2,3)))

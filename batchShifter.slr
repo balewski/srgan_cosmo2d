@@ -1,6 +1,6 @@
 #!/bin/bash 
 #SBATCH -N4 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH --time=2:20:00  -J sr512
+#SBATCH --time=3:10:00  -J sr512
 #-SBATCH --time=30:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
@@ -8,6 +8,7 @@
 #-SBATCH  -x cgpu08 # block sick nodes
 #SBATCH --array 1-1
 # - - - E N D    O F    SLURM    C O M M A N D S
+#  Licenses=scratch
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node

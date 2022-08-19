@@ -47,7 +47,7 @@ class Plotter_SixCube(Plotter_Backbone):
 #...!...!..................
     def input_images(self,big2D,fieldN,figId=1):
         figId=self.smart_append(figId)
-        fig=self.plt.figure(figId,facecolor='white', figsize=(14,9))
+        fig=self.plt.figure(figId,facecolor='white', figsize=(15,10))
         ncol,nrow=3,2
         k=0
         for hlr in ['LR','HR']:
@@ -59,12 +59,13 @@ class Plotter_SixCube(Plotter_Backbone):
                 data=big2D[name]
                 img=np.log(1+data)
                 tit='%s %d %s'%(name,args.lrIndex,str(img.shape))
-                zmax=None
-                if zred!='z200': zmax=1.5 
+                zmax=1.5
+                if zred=='z200': zmax=0.7
                 pim=ax.imshow(img,origin='lower',vmax=zmax)
 
                 # Create colorbar
-                if zred=='z200': cbar = ax.figure.colorbar(pim, ax=ax)#, **cbar_kw)
+                #if zred=='z200' or 1:
+                cbar = ax.figure.colorbar(pim, ax=ax)#, **cbar_kw)
                 #cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
                 ax.set_title(tit)
                 

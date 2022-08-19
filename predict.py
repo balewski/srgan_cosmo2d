@@ -9,6 +9,9 @@ Inference works alwasy on 1 GPU or CPUs
  sol=best2067; exp=dev4_lrFact1.
 ./predict.py   --expName $exp --genSol $sol  (assumes basePath is common for many experiments)
 
+OR cf to sandbox
+ srun -n1 shifter  ./predict.py --basePath . --expName .
+ srun -n1 shifter  ~/srgan_cosmo2d/predict.py --basePath . --expName .
 
 """
 
@@ -34,8 +37,6 @@ import argparse
 #...!...!..................
 def get_parser():
     parser = argparse.ArgumentParser()
-    #parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
-
     parser.add_argument("--basePath",
                         #default='/global/homes/b/balewski/prje/tmp_srganA/'
                         default='/pscratch/sd/b/balewski/tmp_NyxHydro512A/'
@@ -47,7 +48,6 @@ def get_parser():
 
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")
  
-    #parser.add_argument( "-X","--noXterm", dest='noXterm', action='store_true', default=False, help="disable X-term for batch mode")
     parser.add_argument( "--doFOM",  action='store_true', default=False, help="compute FOM ")
     
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2], help="increase output verbosity", default=1, dest='verb')
@@ -114,9 +114,9 @@ def model_infer(model,data_loader,trainPar):
     class Empty: pass
     F=Empty()  # fields (not images)
     F.hrFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
-    F.hrIni=np.empty_like(F.hrFin)
-    F.srFin=np.empty_like(F.hrFin)
-    F.ilrFin=np.empty_like(F.hrFin)
+    F.hrIni=np.zeros_like(F.hrFin)
+    F.srFin=np.zeros_like(F.hrFin)
+    F.ilrFin=np.zeros_like(F.hrFin)
     F.lrFin=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
     print('F-container',F.hrFin.shape,list(F.__dict__))
     
@@ -129,10 +129,10 @@ def model_infer(model,data_loader,trainPar):
     nStep=0
     
     with torch.no_grad():
-        for lrFinImg,hrFinImg in data_loader:
-            lrImg_dev, hrImg_dev = lrFinImg.to(device), hrFinImg.to(device)
-            #print('P1:',hrImg.shape)
-            srImg_dev = model(lrImg_dev) # THE PREDICTION      
+        for hrIniImg,lrFinImg,hrFinImg in data_loader:
+            hrIniImg_dev, lrImg_dev, hrImg_dev = hrIniImg.to(device), lrFinImg.to(device), hrFinImg.to(device)
+            #print('P1:',hrIniImg.shape, np.max(hrIniImg),np.max(hrFinImg))
+            srImg_dev = model([hrIniImg_dev,lrImg_dev]) # THE PREDICTION      
             srFinImg=srImg_dev.cpu()
             n2=nSamp+srFinImg.shape[0]
             #print('nn',nSamp,n2)
@@ -140,11 +140,12 @@ def model_infer(model,data_loader,trainPar):
             # convert images to densities=rho+1
             lrFin=np.exp(lrFinImg.detach()).numpy()
             hrFin=np.exp(hrFinImg.detach()).numpy()
-            #1hrIni=np.exp(hrIniImg.detach()).numpy()
+            hrIni=np.exp(hrIniImg.detach()).numpy()
             srFin=np.exp(srFinImg.detach()).numpy()
+            #print('P2:',hrIni.shape, np.max(hrIni),np.max(hrFin),'std:',np.std(hrIni),np.std(hrFin))
 
             F.hrFin[nSamp:n2,:]=hrFin    
-            #1F.hrIni[nSamp:n2,:]=hrIni
+            F.hrIni[nSamp:n2,:]=hrIni
             F.srFin[nSamp:n2,:]=srFin
             F.lrFin[nSamp:n2,:]=lrFin
             F.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
@@ -216,7 +217,6 @@ if __name__ == '__main__':
         model = torch.nn.DataParallel(model) # disable if 1-gpu training was done
         model.load_state_dict(state_dict)
 
-    #XtrainPar['h5_path']='/global/homes/b/balewski/prje/data_NyxHydro4k/B/' #tmp
     trainPar['num_cpu_workers']=1
     data_loader = get_data_loader(trainPar, args.domain, verb=1)
  

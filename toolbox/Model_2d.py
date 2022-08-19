@@ -176,40 +176,69 @@ class Generator(nn.Module):
  
         for _ in range(conf['num_upsamp_bits']):
             trunk2.append(nn.Conv2d(conf['first_cnn_chan'], upsamp_chan, (3, 3), (1, 1), (1, 1)))
-            trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride1/2
+            trunk2.append(nn.PixelShuffle(2))  #efficient sub-pixel convolution stride 1/2
             trunk2.append(nn.PReLU())
             
         self.upsampling = nn.Sequential(*trunk2)
 
         # Output layer.
+        '''
         self.conv_block3 =  nn.Sequential(
             nn.Conv2d(conf['first_cnn_chan'], num_inp_chan, (9, 9), (1, 1), (4, 4)),
             nn.PReLU()
         )  # to generate only positive values
+        '''
+        # .....  CNN layers
+        hpar1=conf['conv_block3']
+        self.conv_block3 = nn.ModuleList()
+        cnn_stride=1
+        inp_chan=conf['first_cnn_chan']+num_inp_chan  # input will be concatenation w/ hrIni
+        for out_chan,cnnker in zip(hpar1['filter'],hpar1['kernel']):
+            # class _ConvMd( in_channels, out_channels, kernel_size, stride,
+            #print('blk3:', out_chan)            
+            self.conv_block3.append( nn.Conv2d(inp_chan, out_chan, cnnker, cnn_stride, padding='same'))
+            if out_chan==num_inp_chan: # to generate only positive values at the end
+                self.conv_block3.append( nn.PReLU())
+            else:
+                self.conv_block3.append( nn.ReLU())
+            inp_chan=out_chan
 
+
+
+        
         # Initialize neural network weights.
         self._initialize_weights()
 
 
         
-    def forward(self, x: Tensor) -> Tensor:
-        #print('gfx0',x.shape)
-        return self._forward_impl(x)
+    def forward(self, xx: Tensor) -> Tensor:
+        x1,x2=xx  # hrIni,lrFin
+        #print('gfx0',x1.shape,x2.shape)
+        return self._forward_impl(x1,x2)
 
     # Support torch.script function.
-    def _forward_impl(self, x: Tensor) -> Tensor:
+    def _forward_impl(self, x1,x2) -> Tensor:
         #print('gfx',x.shape,x.dtype)
-        out1 = self.conv_block1(x)
+        out1 = self.conv_block1(x2)
         out = self.trunk(out1)
         out2 = self.conv_block2(out)
         #print('gf2',out1.shape,out2.shape)
         out = out1 + out2
         #print('gf2b',out.shape)
         out = self.upsampling(out)
-        out = self.conv_block3(out)
-        #print('gf3',out.shape)
+        #print('gf2c',out.shape)
+        outs= torch.cat([out, x1], dim=1)
+        #print('gf2s',outs.shape)
+        #out = self.conv_block3(out)
+        x=outs
+        for i,lyr in enumerate(self.conv_block3):
+            #if self.verb>2: print('Jcnn-lyr: ',i,lyr)
+            x=lyr(x)
+            #if self.verb>2: print('Jcnn: out ',i,x.shape)
+    
+        #print('gf3',x.shape)
         
-        return out
+        return x
     
 #...!...!..................
     def _initialize_weights(self) -> None:

@@ -29,9 +29,10 @@ salloc -N1
  export MASTER_ADDR=`hostname`  
 srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  --dataName dm_density-Nyx2022a-r3c14
 
-If you run ./batshShiftr.slr  add before
+If you run 
 export SLURM_ARRAY_JOB_ID=555
 export SLURM_ARRAY_TASK_ID=44
+./batchShifter.slr 
 
 (note: exp2 is defined twice - it is convenient for batch jobs)
 

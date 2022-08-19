@@ -40,6 +40,11 @@ facility_conf:
     G_LR: {decay/epochs: auto, init: 9.99e-05, reduce: 0.0288, warmup/epochs: 20}
     batch_size: 4
 
+data_conf:
+    #field_name: baryon_density
+    field_name: dm_density
+    zred_ini: z200
+    zred_fin: z3
 
 model_conf:
   D:
@@ -55,7 +60,10 @@ model_conf:
   G:
     first_cnn_chan: 32
     num_resid_conv: 13
-    num_upsamp_bits: 2  
+    num_upsamp_bits: 2
+    conv_block3: # CNN params, last chan must be 1
+       filter: [60, 30, 10,  1]
+       kernel: [ 5,  5,  5,  5]
     summary_verbosity: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
     
   comment: hpoA perlmutter 20220212_111627_PST
@@ -67,7 +75,8 @@ qa_hpo_1gpu: {D_param_count: 13648577, G_param_count: 329778, adv_samples_per_se
 
 train_conf:
   PG_LR: {init: 0.0001}
-  adv_epochs: 20
+  pre_epochs: 20
+  adv_epochs: 40
   advers_weight: 0.2
   content_weight: 0.8
   early_stop_discr: {G_thres: 0.03, ring_size/epochs: 200}
@@ -75,7 +84,6 @@ train_conf:
   msum_weight: 0.06
   perc_warmup/epochs: 150
   pixel_weight: 8.0
-  pre_epochs: 20
   resume: false
   resume_d_weight: ''
   resume_g_weight: ''
