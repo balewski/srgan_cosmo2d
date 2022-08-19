@@ -2,6 +2,8 @@
 '''
  pack 6 hd5 for  z in [200,5,3] x [LR,HR] into a single h5
 
+salloc  -q interactive  -t4:00:00 -A m3363 -C cpu    -N 1 
+
 '''
 
 import numpy as np
@@ -18,43 +20,53 @@ def get_parser():
     parser.add_argument("--inpPath",default='/global/homes/b/balewski/prje/superRes-Nyx2022a/sixpack_cubes',help="sixpack HyxHydro cubes data") 
         
     args = parser.parse_args()    
-    args.outPath=os.path.join(args.inpPath,'../xx')
+    args.outPath=os.path.join(args.inpPath,'/tmp')
+    #args.outPath=os.path.join(args.inpPath,'../')
     
     for arg in vars(args):  print( 'myArgs:',arg, getattr(args, arg))
     assert os.path.exists(args.inpPath)
     return args
 
-
 #...!...!..................
-def slice_one_sixpack(inpF,verb):
-    sixD,sixMD=read4_data_hdf5(inpF,verb=verb)
+def test_sum(recN,vol):
+    sumV=np.sum(vol,axis=(1,2))
+    sa=np.mean(sumV); sd=np.std(sumV)
+    print('TS:',recN,vol.shape, '2d:',vol.shape[1]**2,'sum=%.1f +/- %.1f'%(sa,sd))
+    #ok00
+#...!...!..................
+def slice_one_sixpack(sixD,sixMD,ir):    
     sizeD=sixMD['cube_bin']
     binFact=sizeD['HR']//sizeD['LR']
-    binOff=binFact//2
+    binOff=binFact//2  # hardcoded 1/2 of HR/LR step
     #print('binfact', binFact,binOff)
     stackD={}
     for x in sixD:
+        cube=sixD[x]
+        if ir>0: cube=np.swapaxes(cube,0,ir)
         if 'HR' in x: # decimate HR cubes
-            stack=sixD[x][binOff::binFact]            
+            stack=cube[binOff::binFact]            
         else:
-            stack=sixD[x]
-        #print('ss',x,stack.shape)
+            stack=cube
+        #print('ss',ir,x,cube.shape); print(cube[0,10,:3]); bbb
         stackD[x]=stack
-    return stackD,sixMD
+    return stackD
 
 
 #...!...!..................
-def prime_output_domain(domD,stackD,domN,nSix):
+def prime_output_domain(domD,stackD,domN,nSixRot,oneN):
+    nOne=stackD[oneN].shape[0]
+    print('prime mOne=%d'%nOne)
     for x in stackD:
-         stack=stackD[x]
-         nOne,ny,nz=stack.shape
-         recN='%s_%s'%(domN,x)
-         domD[recN]=np.zeros((nOne*nSix,ny,nz),dtype=np.float32)
-         #print('new ',recN,domD[recN].shape)
+        stack=stackD[x]
+        _,ny,nz=stack.shape
+        recN='%s_%s'%(domN,x)
+        domD[recN]=np.zeros((nOne*nSixRot,ny,nz),dtype=np.float32)
+        print('new out',recN,domD[recN].shape)        
     return domD
-    
+
+
 #...!...!..................
-def scan_input():
+def scan_input_path():
     sixL=[]
     sPath=args.inpPath
     for sChild in os.listdir(sPath):
@@ -62,6 +74,7 @@ def scan_input():
         #print('new cube:',sChild)
         sixL.append(sChild)
     return sixL
+
 
 #=================================
 #=================================
@@ -71,45 +84,59 @@ def scan_input():
 
 if __name__ == "__main__":
     args=get_parser()
-    sixL=scan_input()
-    #sixL=sixL[:2]
-    print('M: found %d six-cubes'%len(sixL))
-    domSplit={0:['train',12],12:['valid',1],13:['test',1]}
-    
+    sixL=scan_input_path()
+    sixL=sixL[:1]
+    print('M: found %d six-cubes at:'%len(sixL), args.inpPath)
+    domSplit={0:['train',12],12:['valid',1],13:['test',1]} # input 14c: superRes-Nyx2022a
+    nRot=3 # number of rotations of the original cubes : use 1 or 3
+
+    fieldN="baryon_density"
+    fieldN="dm_density"
+
+    # reference cube name defining number of output slizes for all cubes
+    oneN=fieldN+'_LR_z3'
+
     domD={}
     seedL=[]
     for ic,cubeN in enumerate(sixL):
-        print('M: assemble ',ic,cubeN)
+        print('M: assemble ',ic,cubeN,'nRot=',nRot)
         inpF=os.path.join(args.inpPath,cubeN )
-        stackD,sixMD=slice_one_sixpack(inpF,verb=ic==0)
+        sixD,sixMD=read4_data_hdf5(inpF,verb=ic==0,acceptFilter=[fieldN])
+        #pprint(sixMD); ccc
+        
         if ic==0: metaD=sixMD
         seedL.append(sixMD.pop('ic_seed'))
-        if ic in domSplit:
+        
+        if ic in domSplit:  # domains handling
             domN,nSix=domSplit[ic]
-            ic0=ic
-            prime_output_domain(domD,stackD,domN,nSix)
-            print(domN,domD.keys())
-        # insert cubes to big arrays
-        for x in stackD:
-            stack=stackD[x]
-            nOne,ny,nz=stack.shape
-            recN='%s_%s'%(domN,x)
-            j=(ic-ic0)*nOne
-            #print('rr',recN,ic,j)
-            domD[recN][j:j+nOne]=stack
-        #break # just one sixpack, for tesitng
+            prime_output_domain(domD,sixD,domN,nSix*nRot,oneN)
+            ic0=ic # reset address for writeing          
+            print('M:prim',domN,nSix,domD.keys())
+        
+        for ir in range(nRot):
+            stackD=slice_one_sixpack(sixD,sixMD,ir)    
+            # insert cubes to big arrays
+            print('iRot=',ir)
+            for x in stackD:
+                stack=stackD[x]
+                nOne,ny,nz=stack.shape
+                recN='%s_%s'%(domN,x)
+                j=((ic-ic0)*nRot+ir)*nOne
+                #print('rr',recN,ic,j)
+                domD[recN][j:j+nOne]=stack
+                test_sum(recN,stack)
+            #break # just one sixpack, for tesitng
     print('M: all slices collected',domD.keys())
 
     # finalize meta-data    
     metaD['seeds']=seedL
     if 1: # cleanup post-factum
         metaD['size_unit']=metaD.pop('cell_size_unit')
-        metaD['cube_size']=10.
-        
+        metaD['cube_size']=10.        
         
     pprint(metaD)
     nSix=len(seedL)
-    outF=os.path.join(args.outPath,'sliced-Nyx2022a-c%d.h5'%nSix)
+    outF=os.path.join(args.outPath,'%s-Nyx2022a-r%dc%d.h5'%(fieldN,nRot,nSix))
     write4_data_hdf5(domD,outF, metaD=metaD)
     print('M: done, nSix=',nSix)
         

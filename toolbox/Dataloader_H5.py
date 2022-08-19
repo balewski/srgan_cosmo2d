@@ -79,6 +79,8 @@ class Dataset_h5_srgan2D(object):
         # val_baryon_density_HR_z3
 
         fieldN='baryon_density'; zIni='z200'; zFin='z3'  # tmp --> config
+        fieldN='dm_density'; zIni='z5' # tmp --> config
+                
         conf['rec_hrIni']='%s_%s_HR_%s'%(domain,fieldN,zIni)
         conf['rec_lrFin']='%s_%s_LR_%s'%(domain,fieldN,zFin)
         conf['rec_hrFin']='%s_%s_HR_%s'%(domain,fieldN,zFin)
@@ -173,11 +175,16 @@ class Dataset_h5_srgan2D(object):
         
         if self.verb>0 :
             startTm1 = time.time()
-            if self.verb: logging.info('DS: hd5 read time=%.2f(sec) dom=%s data_hrIni.shape=%s dtype=%s'%(startTm1 - startTm0,dom,str(self.data_hrIni.shape),self.data_hrIni.dtype))
+            logging.info('DS: hd5 read time=%.2f(sec) dom=%s data_hrIni.shape=%s dtype=%s'%(startTm1 - startTm0,dom,str(self.data_hrIni.shape),self.data_hrIni.dtype))
+            logging.info('DS: hd5  dom=%s data_lrFin.shape=%s data_hrFin.shape=%s'%(dom,str(self.data_lrFin.shape),str(self.data_hrFin.shape)))
             
         # .......................................................
         #.... data embeddings, transformation should go here ....
-            
+        #  rescale LR data to have the same integral as HR
+        fact=cf['data_shape']['upscale_factor']**2
+        self.data_lrFin*=fact
+        
+        
         #.... end of embeddings ........
         # .......................................................
         self.numLocalSamp=self.data_hrIni.shape[0]
@@ -208,7 +215,8 @@ class Dataset_h5_srgan2D(object):
         lrFin=self.data_lrFin[idx]
         hrFin=self.data_hrFin[idx]  
         #print('DSI:hrIni=',hrIni.shape,hrIni.dtype)
-
+        
+       
         if cf['image_flip_rot']:
           rndV=np.random.uniform(size=3)
           #print('rrr',rndV); ok99
@@ -228,7 +236,7 @@ class Dataset_h5_srgan2D(object):
         lrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(lrFin+1. )) )
         hrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(hrFin+1. )) )
         
-        # fp32-prec data #,hrIniImg.float()
+        # fp32-prec data #,hrIniImg.float(),
         return lrFinImg.float(),hrFinImg.float()
     
         # finally cast output to fp16 - Jan could not make model to work with it

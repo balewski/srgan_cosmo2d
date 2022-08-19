@@ -37,12 +37,12 @@ def get_parser():
     #parser.add_argument('--venue', dest='formatVenue', choices=['prod','poster'], default='prod',help=" output quality/arangement")
 
     parser.add_argument("--basePath",
-                        default='/global/homes/b/balewski/prje/tmp_srganA/'
-                        #default='/pscratch/sd/b/balewski/tmp_NyxHydro4kG/'
+                        #default='/global/homes/b/balewski/prje/tmp_srganA/'
+                        default='/pscratch/sd/b/balewski/tmp_NyxHydro512A/'
                         , help="trained model ")
     parser.add_argument("--expName", default='exp03', help="main dir, train_summary stored there")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
-    parser.add_argument("-n", "--numSamples", type=int, default=200, help="limit samples to predict")
+    parser.add_argument("-n", "--numSamples", type=int, default=1000, help="limit samples to predict")
     parser.add_argument("--domain",default='test', help="domain is the dataset for which predictions are made, typically: test")
 
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")

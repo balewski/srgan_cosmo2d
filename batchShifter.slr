@@ -1,7 +1,7 @@
 #!/bin/bash 
 #SBATCH -N4 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#-SBATCH --time=4:20:00  -J srHpoAc
-#SBATCH --time=30:00 
+#SBATCH --time=2:20:00  -J sr512
+#-SBATCH --time=30:00 
 #SBATCH -C gpu -A nstaff_g
 #SBATCH -q early_science # for early_science, higher priority
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
@@ -12,7 +12,9 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=benchmk_50eaf423; epochs=300
+design=benchmk_50eaf423; epochs=601
+#dataName=baryon_density-Nyx2022a-r3c14
+dataName=dm_density-Nyx2022a-r3c14
 doHPO=0  # on/off switch
 
 N=${SLURM_NNODES}
@@ -86,7 +88,7 @@ export TORCH_HOME=$baseDir  # for storing VGG model
 echo "S: jobId=$SLURM_JOBID  wrkSufix=$wrkSufix  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3    train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId  --dataName sliced-Nyx2022a-c14   $otherParStr "
+export CMD=" python3    train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId  --dataName $dataName   $otherParStr "
 
 echo S: CMD=$CMD  ENGINE=$ENGINE
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  *.hpar.yaml  "

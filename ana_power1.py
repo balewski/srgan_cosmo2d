@@ -107,6 +107,7 @@ def plot_stats(ax,X,Y,Ymed,Yavr=None,Ystd=None):
     ax.axhline(1,linestyle='--')
     ax.grid()
     ax.set_ylim(0.4,1.6)
+    #ax.set_ylim(0.1,1.9)
 
 #...!...!..................
 def plot_integrals(ax,HR,SR,tit):
@@ -134,7 +135,7 @@ def plot_integrals(ax,HR,SR,tit):
     ax.legend(loc='best')
 
     ax=plt.subplot(nrow,ncol,2)
-    binsX=np.linspace(0.97,1.03,50)
+    binsX=np.linspace(0.97,1.03,20)
     ax.hist(rsum, bins=binsX)
     ax.grid()
     ax.set( ylabel='images', xlabel='SR/HR integral mass')

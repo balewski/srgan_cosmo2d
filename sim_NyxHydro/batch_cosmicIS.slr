@@ -2,14 +2,17 @@
 #SBATCH -A m3363
 #SBATCH -C cpu
 #SBATCH -q regular
-#SBATCH -t 2:00:00
+#SBATCH -t 12:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
+# salloc  -q interactive  -t4:00:00 -A m3363 -C cpu    -N 1  
 # this code is not useing GPUs, run for  2 min per cube
 module load e4s/21.11-tcl fftw/3.3.10-gcc-11.2.0-mpi cray-mpich/8.1.15 gcc/11.2.0
 
-nUni=10
+# note, it crashes if manually executed w/o salloc???
+
+nUni=100
 ./init_multi_CosmicIC.sh  $nUni
 echo S:done $nUni
 sleep 5

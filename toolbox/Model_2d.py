@@ -190,6 +190,8 @@ class Generator(nn.Module):
         # Initialize neural network weights.
         self._initialize_weights()
 
+
+        
     def forward(self, x: Tensor) -> Tensor:
         #print('gfx0',x.shape)
         return self._forward_impl(x)
@@ -202,11 +204,13 @@ class Generator(nn.Module):
         out2 = self.conv_block2(out)
         #print('gf2',out1.shape,out2.shape)
         out = out1 + out2
-        
+        #print('gf2b',out.shape)
         out = self.upsampling(out)
         out = self.conv_block3(out)
         #print('gf3',out.shape)
+        
         return out
+    
 #...!...!..................
     def _initialize_weights(self) -> None:
         for m in self.modules():

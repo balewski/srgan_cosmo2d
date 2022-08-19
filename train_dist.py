@@ -27,9 +27,9 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  
+srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  --dataName dm_density-Nyx2022a-r3c14
 
-If you run ./batshShivtr.slr  add before
+If you run ./batshShiftr.slr  add before
 export SLURM_ARRAY_JOB_ID=555
 export SLURM_ARRAY_TASK_ID=44
 

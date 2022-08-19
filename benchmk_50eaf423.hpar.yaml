@@ -56,7 +56,6 @@ model_conf:
     first_cnn_chan: 32
     num_resid_conv: 13
     num_upsamp_bits: 2  
-    print_summary: 0	
     summary_verbosity: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
     
   comment: hpoA perlmutter 20220212_111627_PST
@@ -76,7 +75,7 @@ train_conf:
   msum_weight: 0.06
   perc_warmup/epochs: 150
   pixel_weight: 8.0
-  pre_epochs: 5
+  pre_epochs: 20
   resume: false
   resume_d_weight: ''
   resume_g_weight: ''

@@ -78,7 +78,9 @@ def read_h5bigCube(inpF,name,verb=1):
 #=================================
 if __name__ == '__main__':
     dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2760607_2univ/cube_82337823'
-    inpF=os.path.join(dataPath,"plotLR00001_converted.h5")  
+    inpF=os.path.join(dataPath,"plotLR00001_converted.h5")  # LR, z=200
+    inpF=os.path.join(dataPath,"plotLR00398_converted.h5")  # LR, z=3
+    #inpF=os.path.join(dataPath,"plotHR00001_converted.h5")  # HR, z=200
     print('M: inpF',inpF)
 
     fieldN="dm_density"
@@ -88,5 +90,9 @@ if __name__ == '__main__':
           
     pprint(meta)
     print(bigD.keys())
+
+    # computa various integrals
+    bar3D=bigD['baryon_density']
+    print('bar:',bar3D.shape,' sum 3d:', bar3D.shape[0]**3,np.sum(bar3D), '2d:',bar3D.shape[0]**2,np.sum(bar3D,axis=(1,2))[:10])
     
     print('M: done')

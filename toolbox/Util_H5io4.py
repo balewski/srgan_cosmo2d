@@ -49,16 +49,21 @@ def write4_data_hdf5(dataD,outF,metaD=None,verb=1):
 
     
 #...!...!..................
-def read4_data_hdf5(inpF,verb=1):
+def read4_data_hdf5(inpF,verb=1,acceptFilter=None):
+    # use acceptFiler to down select records you want to read to save time
     if verb>0:
             print('read data from hdf5:',inpF)
             start = time.time()
     h5f = h5py.File(inpF, 'r')
     objD={}
+    keep=1 # added for filetring
     for x in h5f.keys():
         if verb>1: print('\nitem=',x,type(h5f[x]),h5f[x].shape,h5f[x].dtype)        
-        #if x in ['calTag','dataFile','date'] : continue
-        #if 'meta' not in x and 'dm_' not in x: continue 
+        #if x in ['calTag','dataFile','date'] : continue 
+        if acceptFilter!=None:  # user wants to skip some records
+            keep= 'JSON' in x
+            for mask in acceptFilter:  keep+= mask in x
+        if keep==0 : continue # skip this record
         if h5f[x].dtype==object:
             obj=h5f[x][:]
             #print('bbb',type(obj),obj.dtype)

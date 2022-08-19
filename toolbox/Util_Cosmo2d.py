@@ -4,24 +4,6 @@ import scipy.stats as stats
 from pprint import pprint
 
 
-#...!...!..................
-def XXprep_fieldMD(inpMD,trainPar):
-    # assembly meta data for FFT
-    cfds=trainPar['data_shape']
-    space_step=int(inpMD['setup']['boxlength'])/ cfds['hr_size']
-    space_bins=cfds['hr_size']
-    upscale=cfds['upscale_factor']
-    fieldMD={'space_step_unit':'1/Mpc','upscale_factor':upscale}
-    kr='hr'
-    fieldMD[kr]={'space_bins':space_bins}
-    fieldMD[kr]['space_step']=space_step
-    #XfieldMD['sr']=fieldMD['hr']
-    kr='lr'
-    fieldMD[kr]={'space_bins':space_bins//upscale}
-    fieldMD[kr]['space_step']=space_step*upscale
-    outMD={'sim3d':inpMD,'field2d':fieldMD}
-    #print('BB',outMD)
-    return outMD
 
 #...!...!..................
 def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=150,pad1=True): # ln_field1=ln(filed+1)  
@@ -65,7 +47,7 @@ def powerSpect_2Dfield_numpy(field,d=1):  # d: Sample spacing (inverse of the sa
 
 
 #...!...!..................
-def interpolate_2Dfield(A,nZoom=2):    
+def interpolate_2Dfield(A,nZoom=2):    # needed for some pprediction plots
     # it will work with mutli-channel array, format : W,H,C
     sizeX=A.shape[0]
     sizeY=A.shape[1]

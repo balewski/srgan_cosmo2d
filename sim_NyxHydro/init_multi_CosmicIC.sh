@@ -6,11 +6,11 @@ set -u ;  # exit  if you try to use an uninitialized variable
 k=0
 
 numUniv=${1-1}  
-jid=${SLURM_JOBID-123}
+jid=${SLURM_JOBID-hand123}
 
 execPath=/global/homes/b/balewski/prje/simu_Nyx2022_exec
 srcPath=/global/homes/b/balewski/srgan_cosmo2d/sim_NyxHydro
-outPath=/pscratch/sd/b/balewski/tmp_NyxProd/${jid}_${numUniv}univ      
+outPath=/pscratch/sd/b/balewski/tmp_NyxProd2/${jid}_${numUniv}univ      
 
 function gen_int {  #...............
     MIN=0
