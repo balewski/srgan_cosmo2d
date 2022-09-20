@@ -1,6 +1,6 @@
 Defaults:
   # note, CFS-based location will run slower vs. SCRATCH
-  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydroXXXX/
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outA/
   cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/superRes-Nyx2022a
   summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5XX/
   summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kDXXX/
@@ -41,13 +41,13 @@ facility_conf:
     batch_size: 4
 
 data_conf:
-    #field_name: baryon_density
-    field_name: dm_density
+    field_name: baryon_density
+    #field_name: dm_density
     zred_ini: z200
     zred_fin: z3
 
 model_conf:
-  D:
+  D: #........... Discriminator
     conv_block:
       bn: [1, 0, 0, 0, 1, 0, 1]
       filter: [32, 64, 128, 128, 256, 512, 512]
@@ -57,7 +57,7 @@ model_conf:
       dims: [64, 64, 32]
       dropFrac: 0.119
     summary_verbosity: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
-  G:
+  G: # ....... Generator
     first_cnn_chan: 32
     num_resid_conv: 13
     num_upsamp_bits: 2

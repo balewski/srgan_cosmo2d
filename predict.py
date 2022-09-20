@@ -10,7 +10,9 @@ Inference works alwasy on 1 GPU or CPUs
 ./predict.py   --expName $exp --genSol $sol  (assumes basePath is common for many experiments)
 
 OR cf to sandbox
+ ENGINE=" shifter  --image=nersc/pytorch:ngc-21.08-v2 "
  srun -n1 shifter  ./predict.py --basePath . --expName .
+ $SHIFTER  ./predict.py --basePath . --expName .
  srun -n1 shifter  ~/srgan_cosmo2d/predict.py --basePath . --expName .
 
 """

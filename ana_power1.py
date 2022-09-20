@@ -107,7 +107,7 @@ def plot_stats(ax,X,Y,Ymed,Yavr=None,Ystd=None):
     ax.axhline(1,linestyle='--')
     ax.grid()
     ax.set_ylim(0.4,1.6)
-    #ax.set_ylim(0.3,1.7)
+    #ax.set_ylim(0.2,1.8)
 
 #...!...!..................
 def plot_integrals(ax,HR,SR,tit):

@@ -50,7 +50,7 @@ def write4_data_hdf5(dataD,outF,metaD=None,verb=1):
     
 #...!...!..................
 def read4_data_hdf5(inpF,verb=1,acceptFilter=None):
-    # use acceptFiler to down select records you want to read to save time
+    # use acceptFiler list to down select records you want to read to save time
     if verb>0:
             print('read data from hdf5:',inpF)
             start = time.time()

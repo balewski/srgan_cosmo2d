@@ -14,8 +14,8 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=benchmk_50eaf423; epochs=601
-#dataName=baryon_density-Nyx2022a-r3c14
-dataName=dm_density-Nyx2022a-r3c14
+dataName=baryon_density-Nyx2022a-r3c14
+#dataName=dm_density-Nyx2022a-r3c14
 doHPO=0  # on/off switch
 
 N=${SLURM_NNODES}
@@ -43,9 +43,6 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
     facility=perlmutter
     module unload pytorch
     ENGINE=" shifter "
-
-    #export NCCL_NET_GDR_LEVEL=PHB  #enable Direct RDMA
-    #export NCCL_NET_GDR_LEVEL=0 #off Direct RDMA 
 fi
 
 
@@ -81,8 +78,8 @@ EOF`
     echo HPO otherParStr=${otherParStr}=
 fi
 
-#baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro4kF/
-baseDir=$SCRATCH/tmp_NyxHydro512A/
+baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outB/
+#baseDir=$SCRATCH/tmp_NyxHydro512A/
 wrkDir=${baseDir}/$wrkSufix
 export TORCH_HOME=$baseDir  # for storing VGG model
 
