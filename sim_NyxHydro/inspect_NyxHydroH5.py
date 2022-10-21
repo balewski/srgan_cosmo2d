@@ -79,21 +79,21 @@ def read_h5bigCube(inpF,dataN,verb=1):
 #=================================
 if __name__ == '__main__':
     dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2760607_2univ/cube_82337823'
-    dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2728219_4univ/cube_141078250clone' 
+    #dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2728219_4univ/cube_141078250clone' 
     #inpF=os.path.join(dataPath,"plotLR00001_converted.h5")  # LR, z=200
     #inpF=os.path.join(dataPath,"plotLR00398_converted.h5")  # LR, z=3
-    #inpF=os.path.join(dataPath,"plotHR00001_converted.h5")  # HR, z=200
-    inpF=os.path.join(dataPath,"plotHR00138_converted.h5")  # HR Z=50
-    inpF=os.path.join(dataPath,"plotHR00734_converted.h5") # HR z=3
-
+    inpF=os.path.join(dataPath,"plotHR00001_converted.h5")  # HR, z=200
+    #inpF=os.path.join(dataPath,"plotHR00138_converted.h5")  # HR Z=50
+    #inpF=os.path.join(dataPath,"plotHR00734_converted.h5") # HR z=3
+ 
     print('M: inpF',inpF)
 
     fieldN="dm_density"
     #bigD,meta=read_one_nyx_h5(inpF, [fieldN])
 
-    #bigD,meta=read_one_nyx_h5(inpF, ['baryon_density','dm_density'],verb=2)
-    fieldN='tau_red'
-    bigD,meta=read_one_nyx_h5(inpF, [fieldN],groupN="derived_fields",verb=2)
+    bigD,meta=read_one_nyx_h5(inpF, ['baryon_density','dm_density'],verb=2)
+    #fieldN='tau_red'
+    #bigD,meta=read_one_nyx_h5(inpF, [fieldN],groupN="derived_fields",verb=2)
           
     pprint(meta)
     print(bigD.keys())
