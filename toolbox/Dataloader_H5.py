@@ -39,7 +39,7 @@ import torch
 import logging
 from toolbox.Util_IOfunc import read_yaml
 from toolbox.Util_Cosmo2d import   random_flip_rot_WHC
-from toolbox.Util_Torch import transf_field2img_torch
+#from toolbox.Util_Torch import transf_field2img_torch
 
 #...!...!..................
 def get_data_loader(trainMD,domain, verb=1):
@@ -74,13 +74,11 @@ class Dataset_h5_srgan2D(object):
     def __init__(self, conf,domain,verb=1):
         conf['domain']=domain
        
-        fieldN=conf['data_conf']['field_name']
-        zIni=conf['data_conf']['zred_ini']
-        zFin=conf['data_conf']['zred_fin']
+        fieldN=conf['data_conf']
         
-        conf['rec_hrIni']='%s_%s_HR_%s'%(domain,fieldN,zIni)
-        conf['rec_lrFin']='%s_%s_LR_%s'%(domain,fieldN,zFin)
-        conf['rec_hrFin']='%s_%s_HR_%s'%(domain,fieldN,zFin)
+        conf['rec_hrIni']='%s_%s'%(domain,fieldN['HR_zIni'])
+        conf['rec_lrFin']='%s_%s'%(domain,fieldN['LR_zFin'])
+        conf['rec_hrFin']='%s_%s'%(domain,fieldN['HR_zFin'])
         assert conf['world_rank']>=0
         
         self.conf=conf
@@ -121,21 +119,16 @@ class Dataset_h5_srgan2D(object):
         h5f = h5py.File(inpF, 'r')
         metaJ=h5f['meta.JSON'][0]
         inpMD=json.loads(metaJ)
-        #inpMD['packing']={'raw_cube_shape':[4096,4096,4096]} # tmp
-
         
         cfds=cf['data_shape']
         #1print('DL:inpD'); pprint(inpMD); ok45
-        #?cfds['hr_size']=inpMD['packing']['raw_cube_shape'][0]
+
         cfds['hr_size']=h5f[cf['rec_hrIni']].shape[1]
         cfds['lr_size']=h5f[cf['rec_lrFin']].shape[1]
         
         assert cfds['hr_size'] ==cfds['upscale_factor']*cfds['lr_size']
-        
-        #print('DL:recovered meta-data with %d keys dom=%s'%(len(inpMD),dom))
-        #1cf.update(prep_fieldMD(inpMD,cf))
-        #print('DL:cfD'); pprint(cf)
        
+        #print('DL:recovered meta-data with %d keys dom=%s'%(len(inpMD),dom))      
         totSamp=h5f[cf['rec_hrIni']].shape[0]
         
         if 'max_glob_samples_per_epoch' in cf:            
@@ -144,10 +137,8 @@ class Dataset_h5_srgan2D(object):
             oldN=totSamp
             totSamp=min(totSamp,max_samp)
             if totSamp<oldN and  self.verb>0 :
-              logging.warning('GDL: shorter dom=%s max_glob_samples=%d from %d'%(dom,totSamp,oldN))            
-            #idxRange[1]=idxRange[0]+totSamp
-
-        
+              logging.warning('GDL: shorter dom=%s max_glob_samples=%d from %d'%(dom,totSamp,oldN))
+                      
         self.inpMD=inpMD # will be needed later too        
         locStep=int(totSamp/cf['world_size']/cf['local_batch_size'])
         locSamp=locStep*cf['local_batch_size']
@@ -177,11 +168,7 @@ class Dataset_h5_srgan2D(object):
             
         # .......................................................
         #.... data embeddings, transformation should go here ....
-        #  rescale LR data to have the same integral as HR
-        fact=cf['data_shape']['upscale_factor']**2
-        self.data_lrFin*=fact
-        
-        
+                
         #.... end of embeddings ........
         # .......................................................
         self.numLocalSamp=self.data_hrIni.shape[0]
@@ -207,14 +194,19 @@ class Dataset_h5_srgan2D(object):
         assert idx>=0
         assert idx< self.numLocalSamp
 
-        # primary input dtype=uint8 - this is pair of 3D HR densities for initial & final state
+        # primary input 
         hrIni=self.data_hrIni[idx]
         lrFin=self.data_lrFin[idx]
-        hrFin=self.data_hrFin[idx]  
-        #print('DSI:hrIni=',hrIni.shape,hrIni.dtype)
-        
+        hrFin=self.data_hrFin[idx]
+        if 0: # sanity 2
+          print('DSI:hrIni=',hrIni.shape,hrIni.dtype)
+          print('min/max hrIni', np.min(hrIni), np.max(hrIni))
+          print('min/max hrFin', np.min(hrFin), np.max(hrFin))
+          print('min/max lrFin', np.min(lrFin), np.max(lrFin))
+          ok99
        
         if cf['image_flip_rot']:
+          bad_flux_cubes_not_symmetric
           rndV=np.random.uniform(size=3)
           #print('rrr',rndV); ok99
           hrIni=random_flip_rot_WHC(hrIni,rndV)
@@ -228,10 +220,10 @@ class Dataset_h5_srgan2D(object):
         hrFin=hrFin.reshape(1,cfds['hr_size'],-1)
         
         #print('DL shape  X',hrIni.shape,lrFin.shape,'Y:',hrFin.shape)
-        # transform field to image,computed as log(1+rho)
-        hrIniImg=transf_field2img_torch(torch.from_numpy(np.copy(hrIni+1. )) )
-        lrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(lrFin+1. )) )
-        hrFinImg=transf_field2img_torch(torch.from_numpy(np.copy(hrFin+1. )) )
+        # images are used w/o exp-log transform because we now ork with flux-data
+        hrIniImg=torch.from_numpy(np.copy(hrIni )) 
+        lrFinImg=torch.from_numpy(np.copy(lrFin )) 
+        hrFinImg=torch.from_numpy(np.copy(hrFin ))
         
         # fp32-prec data 
         return hrIniImg.float(),lrFinImg.float(),hrFinImg.float()

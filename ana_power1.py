@@ -163,17 +163,12 @@ if __name__ == "__main__":
     #.......... input data
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     fieldD,predMD=read3_data_hdf5(inpF)
-    # filedD contains: rho+1
+    # filedD contains:flux
     #print('expMD:'); pprint(predMD)
-
-    # assembly meta data
-
-    #.... recover  data
-    
+    #.... recover  data    
     HR=fieldD['hrFin'][:,0]  # skip C-index, for now it is 1 channel
     SR=fieldD['srFin'][:,0]
     
-    #space_step=eMD['field2d']['hr']['space_step']  # the same for SR
     space_step=predMD['inpMD']['cell_size']['HR']  # the same for SR
     nSamp=HR.shape[0]
 
@@ -181,10 +176,9 @@ if __name__ == "__main__":
     P=[] # power spectrum space
     for i in range(nSamp):
         # ... compute density
-        rphys,Rhr=density_2Dfield_numpy(np.log(HR[i]))
-        _,Rsr=density_2Dfield_numpy(np.log(SR[i]))
+        rphys,Rhr=density_2Dfield_numpy(HR[i],maxY=2.)
+        _,Rsr=density_2Dfield_numpy(SR[i],maxY=2.)
         
-        #print('Rsr-',i,Rhr.shape)
         r_rel=Rsr/Rhr
         R.append(r_rel)
 
@@ -192,7 +186,6 @@ if __name__ == "__main__":
         kphys,kidx,Phr,fftA2=powerSpect_2Dfield_numpy(HR[i],d=space_step)
         _,_,Psr,_=powerSpect_2Dfield_numpy(SR[i],d=space_step)
 
-        #print('Psr-',i,Phr.shape)
         p_rel=Psr/Phr
         P.append(p_rel)
         
@@ -216,7 +209,7 @@ if __name__ == "__main__":
         ax=plt.subplot(nrow,ncol,1)
         plot_stats(ax,rphys,R,Rmed,Ravr,Rstd)
         tit='%s,  relative Density ,    nSamp=%d'%(tagN,nSamp)
-        ax.set(title=tit, xlabel='ln(rho+1)',ylabel=' D(k)SR / D(k)HR' )
+        ax.set(title=tit, xlabel='flux',ylabel=' D(flux)SR / D(flux)HR' )
         ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
     
         if PLOT['fft']:  # - - - -  power 

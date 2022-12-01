@@ -28,7 +28,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
-    parser.add_argument("--dataName",default="dm_density-Nyx2022a-r3c14",help="[.h5] name data  file")
+    parser.add_argument("--dataName",default="flux-Nyx2022a-r2c14",help="[.h5] name data  file")
     parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
     parser.add_argument("--facility", default='perlmutter', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')
@@ -61,7 +61,8 @@ if __name__ == '__main__':
     blob.pop('Defaults')
     params.update(blob)
     params['design']=args.design
-   
+    params['num_cpu_workers']=1
+       
     #print('M:params');pprint(params)#tmp
     #... propagate facility dependent config
     params['facility']=args.facility
@@ -121,27 +122,11 @@ if __name__ == '__main__':
     for  hrIniImg,lrFinImg,hrFinImg in train_loader: 
 
         if 1:  # get dimensions
-            print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'max:',np.max(hrIniImg.numpy(),axis=(1,2,3)))
-            print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'max:',np.max(lrFinImg.numpy(),axis=(1,2,3)))
+            print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'avr:',np.mean(hrIniImg.numpy(),axis=(1,2,3)))
+            print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'avr:',np.mean(lrFinImg.numpy(),axis=(1,2,3)))
         
-            print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'max:',np.max(hrFinImg.numpy(),axis=(1,2,3)))
+            print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'avr:',np.mean(hrFinImg.numpy(),axis=(1,2,3)))
 
-        if 0:  # test sums
-            img=lrFinImg[:,0].cpu().detach().numpy()
-            volLR=np.exp(img)-1.
-            sumLR=np.sum(volLR,axis=(1,2))
-            
-            img=hrFinImg[:,0].cpu().detach().numpy()
-            volHR=np.exp(img)-1.
-            sumHR=np.sum(volHR,axis=(1,2))
-            
-            sa=np.mean(sumLR); sd=np.std(sumLR)
-            print(k,'TS:lrFin',volLR.shape, '2d:',volLR.shape[1]**2,'sum=%.1e +/- %.1f%c'%(sa,100*sd/sa,37))
-            sa=np.mean(sumHR); sd=np.std(sumHR)
-            print('  hrFin',volHR.shape, '2d:',volHR.shape[1]**2,'sum=%.1e +/- %.1f%c'%(sa,100*sd/sa,37))
-            corr=np.corrcoef(sumLR,sumHR); print('   corr=%.3f'%corr[0,1])
-            
-            #print(k,'lrFin numpy:', img.shape,'2d:',img.shape[0]**2,np.sum(rho,axis=(1,2)) )
 
         k+=1
         if k>3: break

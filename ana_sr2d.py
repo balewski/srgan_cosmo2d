@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 '''
- Analysis of quality of SRGAN-2D images
+ Analysis of quality of SRGAN-2D images, works with flux-data
 
 exp=1612659_1 sol=epoch850 
 ./ana_sr2d.py  --expName $exp --genSol $sol 
@@ -9,9 +9,7 @@ exp=1612659_1 sol=epoch850
 import sys,os,copy
 import numpy as np
 import argparse,os
-#import scipy.stats as stats
 from pprint import pprint
-#from matplotlib.colors import LogNorm
 
 from toolbox.Util_H5io3 import  read3_data_hdf5
 from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy
@@ -56,7 +54,7 @@ class Plotter(Plotter_Backbone):
 #...!...!..................
     def image_2d(self,fieldD,metaD,plDD,myType,figId=4):
         figId=self.smart_append(figId)
-        ncol,nrow=3,2; xyIn=(17.5,10)
+        ncol,nrow=4,1; xyIn=(17.5,4.5)
         fig=self.plt.figure(figId,facecolor='white', figsize=xyIn)
         jx_hr,jy_hr=metaD['hrFin']['zmax_xyz'][:2]
         #print('PI2D:',jx_hr,jy_hr)
@@ -67,7 +65,7 @@ class Plotter(Plotter_Backbone):
             ax=self.plt.subplot(nrow,ncol,1+i)
             img=fieldD[myType][kr]
 
-            zScale=ax.imshow(img, cmap=cmap,origin='lower')
+            zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
            
             tit='%s:%d^2, idx=%d,   z=%s'%(kr,img.shape[0],args.index,myType)
@@ -88,17 +86,15 @@ class Plotter(Plotter_Backbone):
         self.plt.figure(figId,facecolor='white', figsize=(15,4))
         ax=self.plt.subplot(nrow,ncol,1)
         for i,kr in  enumerate(fL[2:]):
-            #if 'sr' in kr: continue
-            #if 'Ini' in kr: continue #tmp
-            data=fieldD['rho+1'][kr][jy_hr]
+            data=fieldD['flux'][kr][jy_hr]
             binX=np.arange(data.shape[0])
             hcol=plDD['hcol'][kr]
             ax.step(binX,data,where='post',label=kr,color=hcol,lw=1)
         ax.axvline(jx_hr,linewidth=1.,color='m',linestyle='--')
         ax.grid()
-        ax.set_yscale('log')
+        #ax.set_yscale('log')
         tit='%s  idx=%d  jy_hr=%d'%(kr,args.index,jy_hr)
-        ax.set(title=tit, ylabel='1+rho',xlabel='bins')
+        ax.set(title=tit, ylabel='flux',xlabel='bins')
         ax.legend(loc='best')
 
 
@@ -111,14 +107,15 @@ class Plotter(Plotter_Backbone):
         # - - - -  density histo - - - - 
         ax=self.plt.subplot(nrow,ncol,1)
         for i,kr in  enumerate(fL):
-            #img=fieldD['ln rho+1'][kr]
+            if kr=='hrIni' : continue
+            print('ddd',i,kr)
             hcol=plDD['hcol'][kr]
             x,y=metaD[kr]['density']
             ax.step(x,y,where='post',label=kr,color=hcol)
         ax.set_yscale('log')
         ax.grid()
         tit='Density,  image idx=%d '%(args.index)
-        ax.set(title=tit, xlabel=r'$ln(1+\rho)$',ylabel='num bins')
+        ax.set(title=tit, xlabel='flux/bin',ylabel='num bins')
         ax.legend(loc='best', title='img type')
 
         
@@ -135,7 +132,7 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
     metaD={}
     for kr in fL:
         metaD[kr]={}
-        data=fieldD['rho+1'][kr]  # density, keep '+1'  
+        data=fieldD['flux'][kr]  #  no exp-log transform fro flux
         #print('data %s %s mx=%.1f std=%.1f'%(kr,str(data.shape),np.max(data),np.std(data)))
         
         jy,jx,zmax=max_2d_index(data)
@@ -143,14 +140,14 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
         else: kr2='LR'
         print(jy,jx,kr,kr2,'max:',zmax,np.min(data),np.sum(data))
         metaD[kr]['zmax_xyz']=[jx,jy,zmax]
-        img=np.log(data)  
-        fieldD['ln rho+1'][kr]=img
+        img=data  
+        fieldD['flux'][kr]=img
         
-        x,y=density_2Dfield_numpy(img,10.)
+        x,y=density_2Dfield_numpy(img,maxY=1.2)  
         metaD[kr]['density']=[x,y]
         
         kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=auxMD[kr2])
-        fieldD['ln fftA2+1'][kr]=np.log(fftA2+1)
+        fieldD['ln fftA2'][kr]=np.log(fftA2)
         metaD[kr]['power']=[kphys,P]
     return metaD
         
@@ -164,40 +161,31 @@ if __name__ == "__main__":
     args=get_parser()
     
     #.......... input data
-    #inpF=os.path.join(args.expPath,'pred-test-%s.h5'%args.genSol)
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     
     bigD,predMD=read3_data_hdf5(inpF)
     #print('predMD:',list(predMD))
     if args.verb>1:pprint(predMD)
-    #predMD['field2d']['ilr']=copy.deepcopy(predMD['field2d']['hr'])  # add infor ILR
     
     # stage data
-    fL=[ 'lrFin', 'ilrFin','hrIni', 'hrFin', 'srFin']
+    fL=[ 'lrFin', 'hrIni', 'hrFin', 'srFin']
 
-    fieldD={'ln rho+1':{}, 'ln fftA2+1':{}}
-    fieldD['rho+1']={ xr:bigD[xr][args.index][0] for xr in fL}  # skip C-index
+    fieldD={'flux':{}, 'ln fftA2':{}}
+    fieldD['flux']={ xr:bigD[xr][args.index][0] for xr in fL}  # skip C-index
 
-    #1fieldD['rho+1']['ilr']=fieldD['rho+1']['sr']
-
-    #pprint(predMD['field2d'])
-    
-    #1auxD['ilr']=auxD['hr']
-    #1fL=['lr','ilr','sr','hr']
-
-    #pprint(predMD['field2d']); ok99
+ 
     metaD=post_process_srgan2D_fileds(fieldD,predMD['inpMD']['cell_size']) #predMD['field2d'])
     #print('M:fdk',fieldD.keys())
     #print('M:fdk2',fieldD['ln rho+1'].keys())
 
     # - - - - - Plotting - - - - - 
     plDD={}
-    plDD['hcol']={'lrFin':'green','ilrFin':'C4','srFin':'C3','hrFin':'k','hrIni':'orange'}
+    plDD['hcol']={'lrFin':'green','srFin':'C3','hrFin':'k','hrIni':'orange'}
     plDD['fL']=fL
     # - - - - - PLOTTER - - - - -
     plot=Plotter(args)
-    if 'a' in args.showPlots:   plot.image_2d(fieldD,metaD,plDD,myType='ln rho+1',figId=1)
-    if 'b' in args.showPlots:   plot.image_2d(fieldD,metaD,plDD,myType='ln fftA2+1',figId=2)
+    if 'a' in args.showPlots:   plot.image_2d(fieldD,metaD,plDD,myType='flux',figId=1)
+    if 'b' in args.showPlots:   plot.image_2d(fieldD,metaD,plDD,myType='ln fftA2',figId=2)
     if 'c' in args.showPlots:   plot.skewer_1d(fieldD,metaD,plDD,figId=3)
     if 'd' in args.showPlots:   plot.spectra(fieldD,metaD,plDD,figId=4)
    

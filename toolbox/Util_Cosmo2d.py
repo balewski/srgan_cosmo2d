@@ -6,10 +6,12 @@ from pprint import pprint
 
 
 #...!...!..................
-def density_2Dfield_numpy(ln_field1,maxY=9.,nbin=150,pad1=True): # ln_field1=ln(filed+1)  
+def density_2Dfield_numpy(field1,maxY=9.,nbin=150,pad1=True): # ln_field1=ln(filed+1)  
     #print('rho2D: ln_field1',ln_field1.shape)
+    vmin,vmax,vavr=np.min(field1),np.max(field1),np.mean(field1)
+    #print('D2DN  vmin,vmax,vavr', vmin,vmax,vavr)
     binsX=np.linspace(0.,maxY,nbin,endpoint=False)
-    y, x= np.histogram(ln_field1, bins=binsX)  # will flatten input array
+    y, x= np.histogram(field1, bins=binsX)  # will flatten input array
     if pad1: # to avoid NaN when computing ratio
         y[y==0.]=1.11111
         
@@ -47,7 +49,7 @@ def powerSpect_2Dfield_numpy(field,d=1):  # d: Sample spacing (inverse of the sa
 
 
 #...!...!..................
-def interpolate_2Dfield(A,nZoom=2):    # needed for some pprediction plots
+def XXinterpolate_2Dfield(A,nZoom=2):    # needed for some pprediction plots
     # it will work with mutli-channel array, format : W,H,C
     sizeX=A.shape[0]
     sizeY=A.shape[1]

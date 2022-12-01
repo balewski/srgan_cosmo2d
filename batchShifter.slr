@@ -1,8 +1,9 @@
 #!/bin/bash 
-#SBATCH -N4 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH --time=3:10:00  -J sr512
+#SBATCH -N16 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
+#SBATCH --time=6:00:00  -J srBig
 #-SBATCH --time=30:00 
 #SBATCH -C gpu -A nstaff_g
+#-SBATCH -C gpu -A  m3363_g  # Peter
 #SBATCH -q early_science # for early_science, higher priority
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2
 #-SBATCH  -x cgpu08 # block sick nodes
@@ -13,9 +14,9 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=benchmk_50eaf423; epochs=601
-dataName=baryon_density-Nyx2022a-r3c14
-#dataName=dm_density-Nyx2022a-r3c14
+design=benchmk_50eaf423
+dataName=flux-Nyx2022a-r2c14;  epochs=320  # do -N4 -t30m
+dataName=flux-Nyx2022a-r2c99;  epochs=1000  # do -N8 -t6h
 doHPO=0  # on/off switch
 
 N=${SLURM_NNODES}
@@ -78,7 +79,7 @@ EOF`
     echo HPO otherParStr=${otherParStr}=
 fi
 
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outB/
+baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outFluxA
 #baseDir=$SCRATCH/tmp_NyxHydro512A/
 wrkDir=${baseDir}/$wrkSufix
 export TORCH_HOME=$baseDir  # for storing VGG model

@@ -31,6 +31,6 @@ class Plotter_SRGAN_2D(Plotter_Backbone):
             ax.set_aspect(1.)
             img=plDD[xr]
             #tit='%s %d %s'%(xr,args.index,str(img.shape))
-            ax.imshow(img,origin='lower') #,vmax=plDD['img_vmax'])
+            ax.imshow(img.T,origin='lower') #,vmax=plDD['img_vmax'])
             
         

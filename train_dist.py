@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 '''
+Input data are 2D flux slices 
 This code has been derived from: Lornatang Liu Changyu
 https://github.com/Lornatang/SRGAN-PyTorch
 which  op-for-op PyTorch reimplementation of Photo-Realistic Single Image Super-Resolution Using a Generative Adversarial Network.
@@ -27,7 +28,7 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_NyxHydro4kG/exp2c  --dataName dm_density-Nyx2022a-r3c14
+srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/  --dataName flux-Nyx2022a-r2c14
 
 If you run 
 export SLURM_ARRAY_JOB_ID=555
@@ -42,8 +43,10 @@ On Summit: salloc, as corigpu, use facility=summitlogin
 ***** Display TB *****
 ssh pm-tb
 cd  $SCRATCH/tmp_NyxHydro4kG/
+OR
+cd  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/
  module load pytorch
- tensorboard --port 9600 --logdir=N4_dev7d_z
+ tensorboard --port 9600 --logdir=exp07
 
 /pscratch/sd/b/balewski/tmp_NyxHydro4kG
 
@@ -72,7 +75,7 @@ def get_parser():
   parser = argparse.ArgumentParser()
   parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
-  parser.add_argument("--dataName",default="sliced-Nyx2022a-c14",help="[.h5] name data  file")
+  parser.add_argument("--dataName",default="flux-Nyx2022a-r2c14",help="[.h5] name data  file")
   parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
   parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter','crusher','corigpu'],help='computing facility where code is executed')  

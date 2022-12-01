@@ -11,7 +11,8 @@ from toolbox.Dataloader_H5 import get_data_loader  # real data from a single fil
 from toolbox.Util_IOfunc import read_yaml,dateT2Str
 from toolbox.Util_H5io3 import  write3_data_hdf5
 from toolbox.Model_2d import Generator, Discriminator, ContentLoss
-from toolbox.Util_Torch import all_reduce_dict, compute_fft, transf_img2field_torch, torchD_to_floatD,integral_loss_func
+from toolbox.Util_Torch import all_reduce_dict, compute_fft, torchD_to_floatD,integral_loss_func
+# , transf_img2field_torch
 from toolbox.Util_Torch import custom_LR_scheduleB as custom_LR_schedule
 #from toolbox.tmp_figures import ( plt_slices, plt_power )
 from toolbox.TBSwriter import TBSwriter
@@ -516,9 +517,9 @@ class Trainer(TBSwriter):
             raw_pix_crit= self.pixel_criterion(sr, hrFin)
             pixel_loss  =  warmAtten *trCf['pixel_weight'] *raw_pix_crit
 
-            # convert from log(mass+1 ) --> mass+1, dim=[BS,1,512,512]
-            hr_field=transf_img2field_torch(hrFin)
-            sr_field=transf_img2field_torch(sr)
+            # working w/ flux, no exp-log conversion, dim=[BS,1,512,512]
+            hr_field=hrFin
+            sr_field=sr
 
             msum_loss= warmAtten *trCf['msum_weight'] *self.msum_criterion(hr_field,sr_field)
 
@@ -618,11 +619,11 @@ class Trainer(TBSwriter):
                         outF=os.path.join(self.params['val_mon_path'],'valid-%s-epoch%d.h5'%(stage,epoch))
                         logging.info('pred dump '+outF)
                         bigD={'lrFin':lrFin,'srFin':sr,'hrFin':hrFin}#,'hrIni':hrIni}                        
-                        # convert images to fileds
+                        # no need to convert images to fileds, we work with flux
                         for x in bigD:
                             y=bigD[x]
                             z=y.detach().cpu().numpy()
-                            bigD[x]=np.exp(z).astype(np.float32)
+                            bigD[x]=z.astype(np.float32)
                         metaD={}
                         #1for x in ['sim3d','field2d']:  metaD[x]=self.params[x]
                         metaD['domain']='valid_batch'

@@ -32,11 +32,11 @@ def torchD_to_floatD(inp):
     return out
     
 #...!...!..................
-def transf_field2img_torch(field):
+def XXtransf_field2img_torch(field):
     return torch.log(field)
 
 #...!...!..................
-def transf_img2field_torch(img):
+def XXtransf_img2field_torch(img):
     return torch.exp(img)
 
 #...!...!..................

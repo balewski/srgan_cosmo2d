@@ -1,12 +1,13 @@
 Defaults:
+  # this config works for flux-data
   # note, CFS-based location will run slower vs. SCRATCH
-  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outA/
-  cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/superRes-Nyx2022a
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/
+  cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/superRes-Nyx2022a-flux
   summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5XX/
   summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kDXXX/
 
-checkpoint_interval/epochs: 50
-comment: production config for Super-Resolution
+checkpoint_interval/epochs: 5
+comment: production config for Super-Resolution using Flux
 const_local_batch: true
 # optional, reduces training samples
 #max_glob_samples_per_epoch: 256  # do 1400 or 256=BS32
@@ -16,7 +17,7 @@ num_inp_chan: 1
 opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
 pred_dump_interval/epochs: 100
 text_log_interval/epochs: 1
-image_flip_rot: true
+image_flip_rot: false
 
 facility_conf:
   perlmutter:
@@ -41,10 +42,9 @@ facility_conf:
     batch_size: 4
 
 data_conf:
-    field_name: baryon_density
-    #field_name: dm_density
-    zred_ini: z200
-    zred_fin: z3
+    LR_zFin: flux_LR_z3
+    HR_zIni: invBarDens_HR_z200
+    HR_zFin: flux_HR_z3
 
 model_conf:
   D: #........... Discriminator
@@ -76,7 +76,7 @@ qa_hpo_1gpu: {D_param_count: 13648577, G_param_count: 329778, adv_samples_per_se
 train_conf:
   PG_LR: {init: 0.0001}
   pre_epochs: 20
-  adv_epochs: 40
+  adv_epochs: 10
   advers_weight: 0.2
   content_weight: 0.8
   early_stop_discr: {G_thres: 0.03, ring_size/epochs: 200}

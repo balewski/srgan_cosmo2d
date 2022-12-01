@@ -9,9 +9,7 @@ import numpy as np
 import argparse,os
 
 from pprint import pprint
-
-
-from toolbox.Util_H5io4 import  read4_data_hdf5
+from sim_NyxHydro.inspect_NyxHydroH5 import read_one_nyx_h5
 from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy
 from toolbox.Plotter_Backbone import Plotter_Backbone
 
@@ -25,8 +23,9 @@ def get_parser():
     parser.add_argument( "-X","--noXterm", action='store_true', default=False, help="disable X-term for batch mode")
    
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
+    parser.add_argument("--cubeName", default='HR00661',help="core name of hd5:  plot[name].flux.h5")
     parser.add_argument("-d","--dataPath",
-                        default='/global/homes/b/balewski/prje/superRes-Nyx2022a/sixpack_cubes/'                        ,help='data location w/o expName')
+                        default='/pscratch/sd/b/balewski/tmp_NyxProd/2767632_2univ/cube_885045934'                        ,help='data location w/o expName')
  
     args = parser.parse_args()
     args.prjName='abc'
@@ -56,18 +55,18 @@ class Plotter(Plotter_Backbone):
         idxr=acf['idx_range']
         idx0=acf['idx0']
         
-        tit1='cube seed '+md['ic_seed']
+        tit1='cube name:'+md['short_name']
         tit2=acf['univ_type']
         
         for i in range(idxr):
             ax=self.plt.subplot(nrow,ncol,1+i)
             myidx=idx0+i
-            one=cube[myidx]
-            img=np.log2(one+1.)
+            img=cube[:,myidx,:] # correct: x-z slice
+            #img=cube[:,:,myidx]  # incorrect: x-y slice
             zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
 
-            tit=' slice:%d'%myidx
+            tit=' slice x:%d'%myidx
             if i==0: tit=tit1+tit
             if i==1: tit=tit2+tit
             ax.set(title=tit)
@@ -82,7 +81,7 @@ class Plotter(Plotter_Backbone):
         acf=md['ana']
         idxr=acf['idx_range']
         idx0=acf['idx0']
-        tit1='cube seed '+md['ic_seed']
+        tit1='cube name:'+md['short_name']
         tit2=acf['univ_type']
         
         # - - - -  absolute power spec - - - - 
@@ -101,7 +100,8 @@ class Plotter(Plotter_Backbone):
 
         # - - - -  relative power spec - - - - 
         ax=self.plt.subplot(nrow,ncol,2)
-        pref=PV[idxr//2+1]  # pick middel
+        pref=PV[idxr//2+1]  # pick middle
+        print('middle',idxr//2+1)
         for i in range(idxr):
             pspec=PV[i]/pref
             dLab='idx=%d'%(i+idx0)
@@ -152,21 +152,29 @@ if __name__ == "__main__":
     args=get_parser()
     
     #.......... input data
-    cubeN='cube_20054028'
-    univ_type="baryon_density_HR_z3"
-    inpF=os.path.join(args.dataPath,cubeN+'.sixpack.h5')
+    cubeF='plot%s.flux.h5'%args.cubeName
+    univ_type="flux_HR"
+    inpF=os.path.join(args.dataPath,cubeF)
+    fieldN='tau_red'
+    bigD,inpMD=read_one_nyx_h5(inpF, [fieldN],groupN="derived_fields",verb=2)
+   
     
-    bigD,inpMD=read4_data_hdf5(inpF,acceptFilter=[univ_type])
+    
+    #bigD,inpMD=read4_data_hdf5(inpF,acceptFilter=[univ_type])
 
     acf={'univ_type':univ_type}
     acf['idx_range']=5 # will compare +/- 2 slices above and below
     acf['idx0']=args.index # pick a starting index
     
     inpMD['ana']=acf
+    inpMD['short_name']=args.cubeName
     pprint(inpMD)
+    cube1=np.exp(-bigD['tau_red'])
+    if 0:
+        print('cube skewer',bigD[fieldN][30,300])
+        print('flux skewer',cube1[30,300])
     
-    cube1=bigD['baryon_density_HR_z3']
-    kbins,PV=compute_power_spec(cube1,inpMD['cell_size']['HR'],inpMD)
+    kbins,PV=compute_power_spec(cube1,inpMD['cell_size'],inpMD)
     
     
     # - - - - - Plotting - - - - -

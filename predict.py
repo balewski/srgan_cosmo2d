@@ -11,8 +11,8 @@ Inference works alwasy on 1 GPU or CPUs
 
 OR cf to sandbox
  ENGINE=" shifter  --image=nersc/pytorch:ngc-21.08-v2 "
- srun -n1 shifter  ./predict.py --basePath . --expName .
- $SHIFTER  ./predict.py --basePath . --expName .
+ srun -n1 shifter  ~/srgan_cosmo2d/predict.py --basePath . --expName .
+ $ENGINE   ~/srgan_cosmo2d/predict.py --basePath . --expName .
  srun -n1 shifter  ~/srgan_cosmo2d/predict.py --basePath . --expName .
 
 """
@@ -30,7 +30,7 @@ logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 from toolbox.Model_2d import Generator
 from toolbox.Util_IOfunc import read_yaml, write_yaml
 from toolbox.Dataloader_H5 import get_data_loader
-from toolbox.Util_Cosmo2d import interpolate_2Dfield,  density_2Dfield_numpy,powerSpect_2Dfield_numpy, srgan2d_FOM1, median_conf_V
+from toolbox.Util_Cosmo2d import  density_2Dfield_numpy,powerSpect_2Dfield_numpy, srgan2d_FOM1, median_conf_V
 from toolbox.Util_H5io3 import  write3_data_hdf5
 
 
@@ -60,7 +60,7 @@ def get_parser():
     return args
 
 #...!...!..................
-def interpolate_field_to_hr(lr,upscale):
+def XXinterpolate_field_to_hr(lr,upscale):
     #print('lrImg',lrImg.shape) # B,C,W,H
     #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
     #print('lrImg.T',lrImg.T.shape) # C,W,H
@@ -118,7 +118,7 @@ def model_infer(model,data_loader,trainPar):
     F.hrFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
     F.hrIni=np.zeros_like(F.hrFin)
     F.srFin=np.zeros_like(F.hrFin)
-    F.ilrFin=np.zeros_like(F.hrFin)
+    #XF.ilrFin=np.zeros_like(F.hrFin)
     F.lrFin=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
     print('F-container',F.hrFin.shape,list(F.__dict__))
     
@@ -139,18 +139,18 @@ def model_infer(model,data_loader,trainPar):
             n2=nSamp+srFinImg.shape[0]
             #print('nn',nSamp,n2)
             
-            # convert images to densities=rho+1
-            lrFin=np.exp(lrFinImg.detach()).numpy()
-            hrFin=np.exp(hrFinImg.detach()).numpy()
-            hrIni=np.exp(hrIniImg.detach()).numpy()
-            srFin=np.exp(srFinImg.detach()).numpy()
+            # convert images are the same as flux, no exp-log conversion
+            lrFin=lrFinImg.detach().numpy()
+            hrFin=hrFinImg.detach().numpy()
+            hrIni=hrIniImg.detach().numpy()
+            srFin=srFinImg.detach().numpy()
             #print('P2:',hrIni.shape, np.max(hrIni),np.max(hrFin),'std:',np.std(hrIni),np.std(hrFin))
 
             F.hrFin[nSamp:n2,:]=hrFin    
             F.hrIni[nSamp:n2,:]=hrIni
             F.srFin[nSamp:n2,:]=srFin
             F.lrFin[nSamp:n2,:]=lrFin
-            F.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
+            #XF.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
                 
             if args.doFOM:
                 histo_dens(hrFinImg,srFinImg,densAll)

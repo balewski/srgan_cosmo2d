@@ -151,7 +151,7 @@ if __name__ == "__main__":
         txt,logD=plDD[1]
         print('log min/max',np.min(logD), np.max(logD))
         print(txt,logD.shape)
-        ax.imshow(logD,vmax=vmax)
+        ax.imshow(logD.T,vmax=vmax)
         tit='zRed=%.1f slice %d,  %s'%(meta['redshift'],args.index,txt)
         ax.set(title=tit)
         #if i==0: ax.grid()

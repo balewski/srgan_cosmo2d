@@ -25,7 +25,7 @@ def read_one_nyx_h5(inpF,fieldNL,groupN="native_fields",verb=1):
     mxRho= np.max(data)
     if verb>1: print('cube min/max',np.min(data),mxRho)
 
-    meta['max_rho']=float(mxRho)
+    #meta['max_rho']=float(mxRho)
     meta['cube_shape']=list(data.shape)
     return bigD,meta
 
@@ -60,7 +60,7 @@ def read_h5bigCube(inpF,dataN,verb=1):
     
     start=time.time()
     f = h5py.File(inpF,'r')
-    if verb>1: print('f keys:',sorted(f.keys()))
+    if verb>1: print('f keys:',sorted(f.keys()),'dataN:',dataN)
     #dataN=/%s"%name
     if verb>0: print('read %s ...'%dataN, 'shape=',f[dataN].shape)
     data = f[dataN][:]
@@ -79,12 +79,12 @@ def read_h5bigCube(inpF,dataN,verb=1):
 #=================================
 if __name__ == '__main__':
     dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2760607_2univ/cube_82337823'
-    #dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2728219_4univ/cube_141078250clone' 
-    #inpF=os.path.join(dataPath,"plotLR00001_converted.h5")  # LR, z=200
-    #inpF=os.path.join(dataPath,"plotLR00398_converted.h5")  # LR, z=3
+    dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2767632_2univ/cube_20054028'
+    #dataPath='/pscratch/sd/b/balewski/tmp_NyxProd/2744759_2univ/cube_1053688752'
     inpF=os.path.join(dataPath,"plotHR00001_converted.h5")  # HR, z=200
-    #inpF=os.path.join(dataPath,"plotHR00138_converted.h5")  # HR Z=50
-    #inpF=os.path.join(dataPath,"plotHR00734_converted.h5") # HR z=3
+    #inpF=os.path.join(dataPath,"plotHR00486_converted.h5")  # HR Z=5
+    #inpF=os.path.join(dataPath,"plotHR00776_converted.h5")  # HR Z=3
+    #inpF=os.path.join(dataPath,"plotHR00418.dens.h5") # HR z=5
  
     print('M: inpF',inpF)
 
@@ -92,8 +92,8 @@ if __name__ == '__main__':
     #bigD,meta=read_one_nyx_h5(inpF, [fieldN])
 
     bigD,meta=read_one_nyx_h5(inpF, ['baryon_density','dm_density'],verb=2)
-    #fieldN='tau_red'
-    #bigD,meta=read_one_nyx_h5(inpF, [fieldN],groupN="derived_fields",verb=2)
+    fieldN='tau_red'
+    bigD,meta=read_one_nyx_h5(inpF, [fieldN],groupN="derived_fields",verb=2)
           
     pprint(meta)
     print(bigD.keys())
