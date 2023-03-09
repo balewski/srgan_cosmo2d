@@ -137,7 +137,7 @@ def M_mock_predict(hr_data,trainPar):
         '''
         
         if args.doFOM:
-            hrFinImg=np.log(F.hrFin)
+            hrFinImg=np.log(F.hrFin) + fix_log
             histo_dens(hrFinImg,srImg,densAll)
             histo_power(hrFin,sr,space_step,powerAll)
                 

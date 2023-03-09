@@ -6,7 +6,7 @@ Plots x-slice at the same depth thrugh 6 cubes
 '''
 
 import scipy.stats as stats
-from toolbox.Util_H5io4 import read4_data_hdf5
+from toolbox.Util_H5io4 import read4_data_hdf5, write4_data_hdf5
 import numpy as np
 import argparse,os,time
 from pprint import pprint
@@ -27,7 +27,7 @@ def get_parser():
     parser.add_argument("-p", "--showPlots",  default='a', nargs='+',help="abcd-string listing shown plots")
 
     args = parser.parse_args()
-    args.prjName='calib'
+    args.prjName='calib_'+args.triName
     args.showPlots=''.join(args.showPlots)
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     if not os.path.exists(args.outPath):
@@ -89,8 +89,9 @@ class Plotter(Plotter_Backbone):
         pprint(plmd)
         _,xLab=plmd['2d-axis']
         yLab='flux'
-        if isFft: yLab='log FFT'
-        
+        if isFft:
+            yLab='log FFT'
+            xLab='k(z*)'
         #...  samples
         ax=self.plt.subplot(nrow,ncol,1)
         sampleV=anaD['sampleV']
@@ -114,10 +115,11 @@ class Plotter(Plotter_Backbone):
         tit=' std dev of delat flux'
         ax.set(title=tit, xlabel=xLab, ylabel='std skewers diff '+yLab)
         
-        return
        
-                       
-
+#............................
+#............................
+#............................
+       
 #...!...!..................
 def ana_skewers(square,isFft=False):  # 2nd dim is preserved - it should be Z
     print('ASK:',square.shape)
@@ -136,7 +138,7 @@ def ana_skewers(square,isFft=False):  # 2nd dim is preserved - it should be Z
         squD=square[::2] -square[1::2] # difference shifted by 1
     
     avrV=np.mean(squD, axis=0)  # preserve last axis
-    stdV=np.std(squD, axis=0)
+    stdV=np.std(squD, axis=0).astype(np.float32)
     #print('zzzz',squD.shape,avrV.shape)
 
     print('avrV : mean',avrV.mean(),'std:',avrV.std())
@@ -149,11 +151,12 @@ def compute_fft_plane(cube):
     nx=cube.shape[0]
     cell_size=triMD['cell_size']['HR']
     logfftSqr=np.zeros((nx,nx//2))  # output storage
+    #print('C:logfftSqr',logfftSqr.shape,nx); ok0
     for i in range(nx):
         square=cube[i]
         kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(square,d=cell_size)
-        return np.log(fftA2)
-        logfftSqr[i]=np.log(fftA2[0])  # take just 1 skewer
+        #return np.log(fftA2) # single FFT splane, messes up whole code downstream, only for plotting
+        logfftSqr[i]=np.log(fftA2[0]+1e-20)  # take just 1 skewer
         
     return   logfftSqr
 
@@ -183,7 +186,6 @@ if __name__ == "__main__":
     big2D={}
     bigD={}  # density
     bigP={}  # power spectrum
-    big2P={}
     plmd={}
                      
     ix=args.lrIndex
@@ -196,8 +198,20 @@ if __name__ == "__main__":
     print('M:  I2D:',sliN,big2D[sliN].shape,'avr:',np.mean(big2D[sliN]))
     bigD=ana_skewers(square)
     logfftSqr=compute_fft_plane(cube)
+    print('M:logfftSqr',logfftSqr.shape);  assert logfftSqr.shape==(512,256)
     bigP=ana_skewers(logfftSqr)
-       
+
+
+    #...... construct loss weight functions for flux(z*) and fft(flux)(k(z*)
+    normD={}
+    normD['std diff log fft']=bigP['std']
+    normD['std diff flux']=bigD['std']
+    # update MD
+    triMD['comment']='x-axis: log_fft(k(z*)), flux(z*)'
+    outF=os.path.join(args.outPath,args.triName+'.normFlux.h5')
+    write4_data_hdf5(normD,outF,metaD=triMD)
+    
+    # ...... only plotting ........
     plot=Plotter(args,triMD)
     triMD['plot']=plmd
     

@@ -28,14 +28,13 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1 shifter  ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/  --dataName flux-Nyx2022a-r2c14
+srun -n 1  shifter  python -u ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --dataName flux-1LR4HR-Nyx2022a-r2c14 --epochs 4 --design benchmk_flux1
 
-If you run 
+If you run SLurm scripts:
 export SLURM_ARRAY_JOB_ID=555
 export SLURM_ARRAY_TASK_ID=44
 ./batchShifter.slr 
 
-(note: exp2 is defined twice - it is convenient for batch jobs)
 
 On Summit: salloc, as corigpu, use facility=summitlogin
 
@@ -44,7 +43,7 @@ On Summit: salloc, as corigpu, use facility=summitlogin
 ssh pm-tb
 cd  $SCRATCH/tmp_NyxHydro4kG/
 OR
-cd  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/
+cd /global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
  module load pytorch
  tensorboard --port 9600 --logdir=exp07
 
@@ -181,7 +180,7 @@ if __name__ == '__main__':
         params['train_conf']['adv_epochs']= args.epochs
     for x in ["D_LR","G_LR"]: 
         if params['train_conf'][x]['decay/epochs']=='auto':
-            params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//2
+            params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//3
         
     trainer = Trainer(params)
     

@@ -109,8 +109,8 @@ if __name__ == "__main__":
     k,P=power_2Dcloud(data)
 
     plDD={}
-    plDD[1]=[inpF,np.log(1+data)]
-    #plDD[1]=['rnd crop %d'%image_size,np.log(1+data1) ]
+    plDD[1]=[inpF,np.log(1+data)] + fix_me
+ 
     
     # - - - - just plotting - - - -
 

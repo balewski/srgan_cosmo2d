@@ -9,12 +9,11 @@ import logging  # to screen
 from toolbox.Dataloader_H5 import get_data_loader  # real data from a single file
 
 from toolbox.Util_IOfunc import read_yaml,dateT2Str
-from toolbox.Util_H5io3 import  write3_data_hdf5
+from toolbox.Util_H5io4 import  read4_data_hdf5, write4_data_hdf5
 from toolbox.Model_2d import Generator, Discriminator, ContentLoss
-from toolbox.Util_Torch import all_reduce_dict, compute_fft, torchD_to_floatD,integral_loss_func
-# , transf_img2field_torch
+from toolbox.Util_Torch import all_reduce_dict, torch_compute_fft, torchD_to_floatD,integral_loss_func
+
 from toolbox.Util_Torch import custom_LR_scheduleB as custom_LR_schedule
-#from toolbox.tmp_figures import ( plt_slices, plt_power )
 from toolbox.TBSwriter import TBSwriter
 from toolbox.RingAverageCheck import RingAverageCheck
 
@@ -26,8 +25,7 @@ import torch.optim as optim
 #............................
 class Trainer(TBSwriter):
 #...!...!..................
-    def __init__(self, params):
-        
+    def __init__(self, params):        
         assert torch.cuda.is_available() 
         self.params = params
         self.verb=params['verb']
@@ -86,7 +84,7 @@ class Trainer(TBSwriter):
             for x in dataD:
                 print(type(x),x.shape,x.dtype)
 
-            ok99
+            sssok99
             # needed for Summary()
             #seen_inp_shape=dataD['input'].shape[1:] # skip batch dimension
             #tgt_shape=dataD['target'].shape[1:]
@@ -98,7 +96,8 @@ class Trainer(TBSwriter):
             assert dist.is_initialized()
             dist.barrier()
             self.dist=dist # needed by this class member methods
-            # wait for all ranks to finish downloading the data - lets keep some order
+            # wait for ... - lets keep some order
+            if self.verb: logging.info('T:all %d ranks to finished downloading their data\n'%dist.get_world_size())
         else:
             self.dist=None # single GPU training
             
@@ -111,6 +110,8 @@ class Trainer(TBSwriter):
             logging.info('T:assemble G+D models')
 
         self.G_model = Generator(params['num_inp_chan'],params['model_conf']['G'],verb=self.verb)
+        #print('kkk');pprint(inpMD); bb1 #['rec_hrFin']); bb2
+        #num_hrFin_chan=self.params['data_shape']['upscale_factor']
         self.D_model = Discriminator(params['num_inp_chan'],params['data_shape']['hr_size'],
                                      params['model_conf']['D'],verb=self.verb)
 
@@ -143,6 +144,10 @@ class Trainer(TBSwriter):
         self.pixel_criterion  = torch.nn.MSELoss().to(self.device)     # Pixel loss.
         self.fft_criterion   = torch.nn.MSELoss().to(self.device)     # FFT loss.
         self.msum_criterion  = integral_loss_func
+
+        #.... load weights for loss functions and store them on device
+        self.load_loss_norm()
+        if params['world_size']>1:  self.dist.barrier()  # I want an order in execution
         
         self.content_criterion= ContentLoss().to(self.device)    # Content loss is activation(?) of 36th layer in VGG19
         #  Binary Cross Entropy between the target and the input probabilities
@@ -250,6 +255,7 @@ class Trainer(TBSwriter):
             Ta=time.time()
             # Train each epoch for generator network.
             self.pretrain_generator( epoch)
+        
             Tb=time.time()
             # Verify each epoch for generator network.
             psnr_value = self.validate( epoch, "gen")
@@ -398,6 +404,10 @@ class Trainer(TBSwriter):
 #...!...!..................
     def pretrain_generator(self, epoch):  # one epoch
         # Pre-training the generator network only.
+        #pprint(self.params)
+        num_hrFin_chan=self.params['data_shape']['upscale_factor']
+        ch1=num_hrFin_chan//2  # pick middle layer, for pre-training the loss does not need ot be that exact
+    
         tbeg = time.time()
         # Calculate how many iterations there are under epoch.
         batches = len(self.train_loader)
@@ -408,7 +418,7 @@ class Trainer(TBSwriter):
             # Copy the data to the specified device.
             hrIni = hrIni.to(self.device)
             lrFin = lrFin.to(self.device)
-            hrFin = hrFin.to(self.device)
+            hrFin = hrFin[:,ch1:ch1+1].to(self.device)
             
             # Initialize the gradient of the generator model.
             if self.params['opt_pytorch']['zerograd']:
@@ -421,6 +431,7 @@ class Trainer(TBSwriter):
             srFin = self.G_model([hrIni,lrFin])
             
             # Calculate the difference between the super-resolution image and the high-resolution image at the pixel level.
+
             pixel_loss = self.pixel_criterion(srFin, hrFin)
             # Update the weights of the generator model.
             pixel_loss.backward()
@@ -428,12 +439,7 @@ class Trainer(TBSwriter):
             
             # ..... only monitoring is below
             cnt['pixel_loss']+=pixel_loss
-            '''
-            if self.isRank0:
-                if index % self.params['text_log_interval_steps']==0 and self.verb:
-                    print(f"Train Epoch[{epoch:04d}]({index:05d}/{batches:05d}) Loss: {pixel_loss:.6f}.")
-            '''
-
+ 
         # end of epoch, compute summary
         for x in cnt: cnt[x]/=batches
 
@@ -483,7 +489,8 @@ class Trainer(TBSwriter):
 
             #....  1A: Train D on real
             # Calculate the loss of the discriminator model on the high-resolution image.
-            output = self.D_model(hrFin) # d_real_decision
+            hrFin1=hrFin[:,1:2]  # tmp, give to discriminator only 1 of 4 channels, to match w/ generated channel count 
+            output = self.D_model(hrFin1) # d_real_decision
             d_loss_hr = self.adversarial_criterion(output, real_label) # d_real_error
             d_loss_hr.backward()  # compute/store gradients, but don't change params
             d_hr = output.mean()   # d_real_decision_mean
@@ -510,23 +517,26 @@ class Trainer(TBSwriter):
             #.... 2. Train G on D's response (but DO NOT train D on these labels)
             # Calculate the loss of the discriminator model on the super-resolution image.
             output = self.D_model(sr) # dg_fake_decision, len=BS filled w/ probabilities of being real
-
+            # working w/ flux, no exp-log conversion, dim=[BS,1,512,512]
             # Perceptual_loss= weighted sum:  pixel + content +  adversarial + power_spect
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
-            content_loss =  trCf['content_weight'] *self.content_criterion(sr, hrFin)
-            raw_pix_crit= self.pixel_criterion(sr, hrFin)
-            pixel_loss  =  warmAtten *trCf['pixel_weight'] *raw_pix_crit
-
-            # working w/ flux, no exp-log conversion, dim=[BS,1,512,512]
-            hr_field=hrFin
-            sr_field=sr
-
-            msum_loss= warmAtten *trCf['msum_weight'] *self.msum_criterion(hr_field,sr_field)
-
-            hr_fft=compute_fft( hr_field)
-            sr_fft=compute_fft( sr_field)
-            raw_fft_crit=self.fft_criterion(sr_fft, hr_fft)
-            fft_loss = warmAtten *trCf['fft_weight'] *raw_fft_crit
+            num_hrFin_chan=self.params['data_shape']['upscale_factor']
+            cSum=0;   pSum=0; mSum=0; fSum=0
+            sr_fft=torch_compute_fft( sr) /self.fft_norm_tensor
+            #print('zzz',sr_fft.shape,self.weight_fft.shape);
+            #sr_fft=sr_fft
+            #ok56
+            for hrc in range(num_hrFin_chan):
+                cSum+=self.content_criterion(sr, hrFin[:,hrc:hrc+1])
+                mSum+=self.msum_criterion(sr, hrFin[:,hrc:hrc+1])
+                pSum+=self.pixel_criterion(sr, hrFin[:,hrc:hrc+1])
+                hr_fft=torch_compute_fft(hrFin[:,hrc:hrc+1]) /self.fft_norm_tensor
+                fSum=self.fft_criterion(sr_fft, hr_fft)
+            
+            content_loss =  trCf['content_weight'] *cSum           
+            pixel_loss  = warmAtten *trCf['pixel_weight'] *pSum
+            msum_loss   = warmAtten *trCf['msum_weight'] *mSum
+            fft_loss    = warmAtten *trCf['fft_weight'] *fSum
                             
             # Update the weights of the generator model.
             g_loss =  advers_loss +  pixel_loss + content_loss + fft_loss + msum_loss
@@ -545,7 +555,7 @@ class Trainer(TBSwriter):
             cnt['advers_loss']+=advers_loss
             cnt['content_loss']+=content_loss
             cnt['g_loss']+=g_loss
-            physLoss=np.sqrt(float(raw_pix_crit)*float(raw_fft_crit))
+            physLoss=np.sqrt(float(pSum)*float(fSum))
             self.physLossRing.update(physLoss)
 
             if self.isRank0:
@@ -587,6 +597,9 @@ class Trainer(TBSwriter):
             stage is [gen,adv] toredirect the printouts.
         Returns: PSNR value(float).
         """
+        num_hrFin_chan=self.params['data_shape']['upscale_factor']
+        ch1=num_hrFin_chan//2  # pick middle layer, for pre-training the loss does not need ot be that exact
+        
         # Calculate how many iterations there are under epoch.
         batches = len(self.valid_loader)
         # Set generator model in verification mode.
@@ -597,7 +610,7 @@ class Trainer(TBSwriter):
                 # Copy the data to the specified device.
                 hrIni = hrIni.to(self.device)
                 lrFin = lrFin.to(self.device)
-                hrFin = hrFin.to(self.device)
+                hrFin = hrFin[:,ch1:ch1+1].to(self.device)
                 # Generate super-resolution images.
                 sr = self.G_model([hrIni,lrFin])
                 # Calculate the PSNR indicator.
@@ -634,6 +647,40 @@ class Trainer(TBSwriter):
                         metaD['gen_sol']='%s-epoch%d'%(stage,epoch)
                         
                         #print('DDD');pprint(metaD)
-                        write3_data_hdf5(bigD,outF,metaD=metaD,verb=0)
+                        write4_data_hdf5(bigD,outF,metaD=metaD,verb=0)
 
         return cnt['psnr']
+
+#...!...!..................
+    def load_loss_norm(self):
+        cf=self.params
+        inpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
+        normD,normMD=read4_data_hdf5(inpF,verb=self.verb)
+        #pprint(cf)
+        #  'data_shape': {'hr_size': 512, 'lr_size': 128, 'upscale_factor': 4},
+        nhr=cf['data_shape']['hr_size']
+        lbs=cf['local_batch_size']
+
+        #.... FFT
+        one=normD['std diff log fft']
+        ndx=one.shape[0]
+        assert ndx==nhr//2
+        nz=np.count_nonzero(one<=0)
+        assert nz==0  # std must be >0
+        one=np.clip(one,0.5,None)
+                
+        wfft=np.broadcast_to(one,(lbs,1,ndx,ndx))
+        #goal dims:  torch.Size([4, 1, 256, 256])        
+        if self.verb: print('wfft sh',wfft.shape,'nz=',nz)
+
+        if 0 and self.verb:
+            print('smaple wfft')
+            print(wfft[0,0,0,::10])
+            print(wfft[0,0,7,::10])
+            print(wfft[2,0,0,::10])
+            print(wfft[0,0,::10,60])
+
+        self.fft_norm_tensor=torch.from_numpy(np.copy(wfft )).to(self.device) 
+        
+        
+        

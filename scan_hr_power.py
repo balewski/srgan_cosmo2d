@@ -62,8 +62,8 @@ class Plotter(Plotter_Backbone):
         for i in range(idxr):
             ax=self.plt.subplot(nrow,ncol,1+i)
             myidx=idx0+i
-            one=cube[myidx]
-            img=np.log2(one+1.)
+            one=cube[myidx]            
+            img=np.log2(one+1.)  + fix_log_below
             zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
 

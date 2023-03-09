@@ -11,8 +11,8 @@ import numpy as np
 import argparse,os
 from pprint import pprint
 
-from toolbox.Util_H5io3 import  read3_data_hdf5
-from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy,density_2Dfield_numpy
+from toolbox.Util_H5io4 import  read4_data_hdf5
+from toolbox.Util_Cosmo2d import  powerSpect_2Dfield_numpy, density_2Dfield_numpy
 from toolbox.Plotter_Backbone import Plotter_Backbone
 
 
@@ -20,7 +20,7 @@ from toolbox.Plotter_Backbone import Plotter_Backbone
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v","--verbosity",type=int,choices=[0, 1, 2, 3], help="increase output verbosity", default=1, dest='verb')
-    parser.add_argument("-p", "--showPlots",  default='ab',help="abc-string listing shown plots")
+    parser.add_argument("-p", "--showPlots",  default='ab', nargs='+',help="abc-string listing shown plots")
 
     parser.add_argument( "-i","--index", default=33,type=int,help="image index, aka 2D-slice")
     parser.add_argument( "-X","--noXterm", action='store_true', default=False, help="disable X-term for batch mode")
@@ -33,6 +33,7 @@ def get_parser():
                         ,help='data location w/o expName')
  
     args = parser.parse_args()
+    args.showPlots=''.join(args.showPlots)
     if args.expName!=None:
         args.dataPath=os.path.join(args.dataPath,args.expName)
     args.formatVenue='prod'
@@ -56,45 +57,59 @@ class Plotter(Plotter_Backbone):
         figId=self.smart_append(figId)
         ncol,nrow=4,1; xyIn=(17.5,4.5)
         fig=self.plt.figure(figId,facecolor='white', figsize=xyIn)
-        jx_hr,jy_hr=metaD['hrFin']['zmax_xyz'][:2]
-        #print('PI2D:',jx_hr,jy_hr)
+        jy_hr=plDD['skewer_iy']
         cmap='Blues'
         if 'fft' in myType:    cmap ='Paired'
         
         for i,kr in  enumerate(plDD['fL']):
             ax=self.plt.subplot(nrow,ncol,1+i)
-            img=fieldD[myType][kr]
-
+            if 'fft' in myType:
+                kr+='_0'
+                img=fieldD[myType][kr]
+            else:
+                img=fieldD[myType][kr][0]
+            #print('zzz2',i,img.shape)
             zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
            
-            tit='%s:%d^2, idx=%d,   z=%s'%(kr,img.shape[0],args.index,myType)
+            tit='%s:%d^2, idx=%d, dens=%s'%(kr,img.shape[0],args.index,myType)
             ax.set(title=tit)
+            if 'fft' in myType:
+                ax.set( xlabel='k(x)',ylabel='k(z*)')
+            else:
+                ax.set( xlabel='x',ylabel='z*')
             
             if kr!='lrFin' and  'fft' not in myType:
                 ax.axhline(jy_hr,linewidth=0.5,color='m')
-#                # compute range of vertical line
-                y1=jy_hr/img.shape[0]            
-                ax.axvline(jx_hr, max(0,y1-0.1), min(1,y1+0.1),linewidth=0.5,color='y')
                  
 
 #...!...!..................
     def skewer_1d(self,fieldD,metaD,plDD,figId=4):
         figId=self.smart_append(figId)
-        jx_hr,jy_hr=metaD['hrFin']['zmax_xyz'][:2]
+        #jx_hr,jy_hrjy_hr=metaD['hrFin']['zmax_xyz'][:2]
+        jy_hr=plDD['skewer_iy']
         ncol,nrow=1,1
-        self.plt.figure(figId,facecolor='white', figsize=(15,4))
+        self.plt.figure(figId,facecolor='white', figsize=(15,5))
         ax=self.plt.subplot(nrow,ncol,1)
-        for i,kr in  enumerate(fL[2:]):
-            data=fieldD['flux'][kr][jy_hr]
-            binX=np.arange(data.shape[0])
-            hcol=plDD['hcol'][kr]
-            ax.step(binX,data,where='post',label=kr,color=hcol,lw=1)
-        ax.axvline(jx_hr,linewidth=1.,color='m',linestyle='--')
-        ax.grid()
-        #ax.set_yscale('log')
-        tit='%s  idx=%d  jy_hr=%d'%(kr,args.index,jy_hr)
-        ax.set(title=tit, ylabel='flux',xlabel='bins')
+        
+        #... plot truth
+        dataT=fieldD['flux']['hrFin']  #
+        dataEr=fieldD['flux_std']        
+        binX=np.arange(dataEr.shape[0])
+        num_hrFin_chan=dataT.shape[0]
+        for i in range(num_hrFin_chan):  # show 4 possible HR skewers
+            data=dataT[i][jy_hr]
+            #print('zzz',i,dataT.shape,data.shape)
+            ax.step(binX,data,where='post',label='HR_%d'%i,color='k',lw=1)          
+       
+        #.... plot SR prediction
+        data=fieldD['flux']['srFin'][0][jy_hr]        
+        ax.step(binX,data,where='post',color='r',lw=1)
+        ax.errorbar(binX[::10],data[::10],yerr=dataEr[::10],color='r',fmt='+',label='SR')
+        
+        ax.grid()       
+        tit='skewer idx=%d  jy_hr=%d'%(args.index,jy_hr)
+        ax.set(title=tit, ylabel='flux',xlabel='z*')
         ax.legend(loc='best')
 
 
@@ -109,20 +124,24 @@ class Plotter(Plotter_Backbone):
         for i,kr in  enumerate(fL):
             if kr=='hrIni' : continue
             print('ddd',i,kr)
-            hcol=plDD['hcol'][kr]
-            x,y=metaD[kr]['density']
+            hcol=plDD['hcol'][kr] 
+            x,y=metaD[kr]['density 0']
             ax.step(x,y,where='post',label=kr,color=hcol)
+            '''
+            if  kr=='hrFin' :  # plot another 3
+                for i in range(1,4):
+                    x,y=metaD[kr]['density %d'%i]
+                    ax.step(x,y,where='post',color=hcol,lw=1.)
+            '''
         ax.set_yscale('log')
         ax.grid()
         tit='Density,  image idx=%d '%(args.index)
         ax.set(title=tit, xlabel='flux/bin',ylabel='num bins')
         ax.legend(loc='best', title='img type')
 
-        
-#...!...!..................
-def max_2d_index(A):
-    [jy,jx]=np.unravel_index(A.argmax(), A.shape)
-    return jy,jx,A[jy,jx]
+#............................
+#............................
+#............................
 
 #...!...!..................
 def post_process_srgan2D_fileds(fieldD,auxMD):
@@ -132,23 +151,27 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
     metaD={}
     for kr in fL:
         metaD[kr]={}
-        data=fieldD['flux'][kr]  #  no exp-log transform fro flux
+        data=fieldD['flux'][kr]  #  no exp-log transform for flux
         #print('data %s %s mx=%.1f std=%.1f'%(kr,str(data.shape),np.max(data),np.std(data)))
+
+        if 'hr' in kr:
+            kr2='HR'            
+        else:
+            kr2='LR'
+
+        #fieldD['flux'][kr]=data
+
+        inp_chan=data.shape[0]
+        for i in range(inp_chan):
+            img=data[0]
+            krc='%s_%d'%(kr,i)
+            #print('PPS',i,krc,img.shape)
+            x,y=density_2Dfield_numpy(img) #,maxY=1.2)  
+            metaD[kr]['density %d'%i]=[x,y]
         
-        jy,jx,zmax=max_2d_index(data)
-        if 'hr' in kr: kr2='HR'
-        else: kr2='LR'
-        print(jy,jx,kr,kr2,'max:',zmax,np.min(data),np.sum(data))
-        metaD[kr]['zmax_xyz']=[jx,jy,zmax]
-        img=data  
-        fieldD['flux'][kr]=img
-        
-        x,y=density_2Dfield_numpy(img,maxY=1.2)  
-        metaD[kr]['density']=[x,y]
-        
-        kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=auxMD[kr2])
-        fieldD['ln fftA2'][kr]=np.log(fftA2)
-        metaD[kr]['power']=[kphys,P]
+            kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(img,d=auxMD[kr2])
+            fieldD['ln fftA2'][krc]=np.log(fftA2+1.e-20)
+            metaD[kr]['power %d'%i]=[kphys,P]
     return metaD
         
 #=================================
@@ -158,30 +181,32 @@ def post_process_srgan2D_fileds(fieldD,auxMD):
 #=================================
 
 if __name__ == "__main__":
-    args=get_parser()
+    args=get_parser()    
+    
     
     #.......... input data
     inpF=os.path.join(args.dataPath,'pred-test-%s.h5'%args.genSol)
     
-    bigD,predMD=read3_data_hdf5(inpF)
+    bigD,predMD=read4_data_hdf5(inpF)
     #print('predMD:',list(predMD))
-    if args.verb>1:pprint(predMD)
-    
+    if args.verb>1:   pprint(predMD); exit(0)
+   
     # stage data
     fL=[ 'lrFin', 'hrIni', 'hrFin', 'srFin']
 
     fieldD={'flux':{}, 'ln fftA2':{}}
-    fieldD['flux']={ xr:bigD[xr][args.index][0] for xr in fL}  # skip C-index
-
- 
+    fieldD['flux']={ xr:bigD[xr][args.index] for xr in fL}  #XXX skip Chan-index
+    fieldD['flux_std']=bigD['flux_std']
+    
     metaD=post_process_srgan2D_fileds(fieldD,predMD['inpMD']['cell_size']) #predMD['field2d'])
-    #print('M:fdk',fieldD.keys())
-    #print('M:fdk2',fieldD['ln rho+1'].keys())
+    print('M:fdk',fieldD.keys(), bigD['hrFin'].shape)
+ 
 
     # - - - - - Plotting - - - - - 
     plDD={}
     plDD['hcol']={'lrFin':'green','srFin':'C3','hrFin':'k','hrIni':'orange'}
     plDD['fL']=fL
+    plDD['skewer_iy']=99
     # - - - - - PLOTTER - - - - -
     plot=Plotter(args)
     if 'a' in args.showPlots:   plot.image_2d(fieldD,metaD,plDD,myType='flux',figId=1)
@@ -189,5 +214,5 @@ if __name__ == "__main__":
     if 'c' in args.showPlots:   plot.skewer_1d(fieldD,metaD,plDD,figId=3)
     if 'd' in args.showPlots:   plot.spectra(fieldD,metaD,plDD,figId=4)
    
-    plot.display_all('ana_img%d'%args.index)
+    plot.display_all('sr_img%d'%args.index)
      

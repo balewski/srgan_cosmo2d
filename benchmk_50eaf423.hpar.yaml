@@ -1,7 +1,7 @@
 Defaults:
   # this config works for flux-data
   # note, CFS-based location will run slower vs. SCRATCH
-  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux/
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux4
   cfs_data: &CFS_DATA  /global/homes/b/balewski/prje/superRes-Nyx2022a-flux
   summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5XX/
   summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kDXXX/
@@ -75,15 +75,16 @@ qa_hpo_1gpu: {D_param_count: 13648577, G_param_count: 329778, adv_samples_per_se
 
 train_conf:
   PG_LR: {init: 0.0001}
-  pre_epochs: 20
+  pre_epochs: 30  # was 20
   adv_epochs: 10
+  perc_warmup/epochs: 50
+  early_stop_discr: {G_thres: 0.03, ring_size/epochs:100}
   advers_weight: 0.2
   content_weight: 0.8
-  early_stop_discr: {G_thres: 0.03, ring_size/epochs: 200}
   fft_weight: 0.3
   msum_weight: 0.06
-  perc_warmup/epochs: 150
   pixel_weight: 8.0
+  loss_norm_h5: cube_82337823.normFlux.h5 
   resume: false
   resume_d_weight: ''
   resume_g_weight: ''

@@ -50,13 +50,13 @@ def get_data_loader(trainMD,domain, verb=1):
   
   # return back some info
   trainMD[domain+'_steps_per_epoch']=dataset.sanity()
-  for x in ['data_shape']: #1,'sim3d','field2d']:
+  for x in ['data_shape']:
       trainMD[x]=conf[x]
 
   # data dimension is know after data are read in
   cfds=conf['data_shape']
-  trainMD['data_shape']['hr_img']=[conf['num_inp_chan'],cfds['hr_size'],cfds['hr_size']]
-  trainMD['data_shape']['lr_img']=[conf['num_inp_chan'],cfds['lr_size'],cfds['lr_size']]
+  #?trainMD['data_shape']['hr_img']=[conf['num_inp_chan'],cfds['hr_size'],cfds['hr_size']]
+  #?trainMD['data_shape']['lr_img']=[conf['num_inp_chan'],cfds['lr_size'],cfds['lr_size']]
   dataloader = DataLoader(dataset,
                           batch_size=conf['local_batch_size'],
                           num_workers=conf['num_cpu_workers'],
@@ -123,8 +123,8 @@ class Dataset_h5_srgan2D(object):
         cfds=cf['data_shape']
         #1print('DL:inpD'); pprint(inpMD); ok45
 
-        cfds['hr_size']=h5f[cf['rec_hrIni']].shape[1]
-        cfds['lr_size']=h5f[cf['rec_lrFin']].shape[1]
+        cfds['hr_size']=h5f[cf['rec_hrIni']].shape[-1]
+        cfds['lr_size']=h5f[cf['rec_lrFin']].shape[-1]
         
         assert cfds['hr_size'] ==cfds['upscale_factor']*cfds['lr_size']
        
@@ -215,11 +215,11 @@ class Dataset_h5_srgan2D(object):
 
           
         # use only one chan, convert WH to CWH
-        hrIni=hrIni.reshape(1,cfds['hr_size'],-1)
-        lrFin=lrFin.reshape(1,cfds['lr_size'],-1)
-        hrFin=hrFin.reshape(1,cfds['hr_size'],-1)
+        #hrIni=hrIni.reshape(cfds['upscale_factor'],cfds['hr_size'],cfds['hr_size'])
+        lrFin=lrFin.reshape(1,cfds['lr_size'],cfds['lr_size'])
+        #hrFin=hrFin.reshape(cfds['upscale_factor'],cfds['hr_size'],cfds['hr_size'])
         
-        #print('DL shape  X',hrIni.shape,lrFin.shape,'Y:',hrFin.shape)
+        #print('DL shape  X',hrIni.shape,lrFin.shape,'Y:',hrFin.shape); b90
         # images are used w/o exp-log transform because we now ork with flux-data
         hrIniImg=torch.from_numpy(np.copy(hrIni )) 
         lrFinImg=torch.from_numpy(np.copy(lrFin )) 

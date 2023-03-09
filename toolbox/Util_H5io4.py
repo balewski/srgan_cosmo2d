@@ -29,7 +29,7 @@ def write4_data_hdf5(dataD,outF,metaD=None,verb=1):
     h5f = h5py.File(outF, 'w')
     if verb>0:
             print('saving data as hdf5:',outF)
-            start = time.time()
+    start = time.time()
     for item in dataD:
         rec=dataD[item]
         if verb>1: print('x=',item,type(rec))

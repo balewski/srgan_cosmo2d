@@ -175,7 +175,7 @@ def post_process_srgan2D_fileds(fieldD,metaD):
         jy,jx,zmax=max_2d_index(data)
         print(jy,jx,kr,'max:',zmax)
         metaD[kr]['zmax_xyz']=[jx,jy,zmax]
-        img=np.log(data)  # for plotting and density histo
+        img=np.log(data)+fix_log  # for plotting and density histo
         kphys,kbins,P,fftA2=powerSpect_2Dfield_numpy(data,d=metaD[kr]['space_step'])
         fieldD['ln rho+1'][kr]=img
         metaD[kr]['power']=[kphys,kbins,P]

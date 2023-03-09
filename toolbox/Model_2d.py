@@ -182,33 +182,27 @@ class Generator(nn.Module):
         self.upsampling = nn.Sequential(*trunk2)
 
         # Output layer.
-        '''
-        self.conv_block3 =  nn.Sequential(
-            nn.Conv2d(conf['first_cnn_chan'], num_inp_chan, (9, 9), (1, 1), (4, 4)),
-            nn.PReLU()
-        )  # to generate only positive values
-        '''
         # .....  CNN layers
         hpar1=conf['conv_block3']
         self.conv_block3 = nn.ModuleList()
         cnn_stride=1
-        inp_chan=conf['first_cnn_chan']+num_inp_chan  # input will be concatenation w/ hrIni
+        num_hrIni_chan=1<<conf['num_upsamp_bits'] #  must match HR-data
+        inp_chan=conf['first_cnn_chan']+num_hrIni_chan  # input will be concatenation w/ hrIni
         for out_chan,cnnker in zip(hpar1['filter'],hpar1['kernel']):
             # class _ConvMd( in_channels, out_channels, kernel_size, stride,
             #print('blk3:', out_chan)            
             self.conv_block3.append( nn.Conv2d(inp_chan, out_chan, cnnker, cnn_stride, padding='same'))
-            if out_chan==num_inp_chan: # to generate only positive values at the end
-                self.conv_block3.append( nn.PReLU())
+            if out_chan==num_inp_chan: 
+                #self.conv_block3.append( nn.PReLU()) # to generate only positive rho-values at the end
+                self.conv_block3.append( nn.Sigmoid()) # to generate [0,1]  flux-values at the end
+                
             else:
                 self.conv_block3.append( nn.ReLU())
             inp_chan=out_chan
 
-
-
         
         # Initialize neural network weights.
         self._initialize_weights()
-
 
         
     def forward(self, xx: Tensor) -> Tensor:

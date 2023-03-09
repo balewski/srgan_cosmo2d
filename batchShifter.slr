@@ -1,11 +1,11 @@
 #!/bin/bash 
-#SBATCH -N16 --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH --time=6:00:00  -J srBig
-#-SBATCH --time=30:00 
-#SBATCH -C gpu -A nstaff_g
-#-SBATCH -C gpu -A  m3363_g  # Peter
-#SBATCH -q early_science # for early_science, higher priority
-#SBATCH --image=nersc/pytorch:ngc-21.08-v2
+#SBATCH  --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
+#-SBATCH -N8 --time=30:00 -q debug
+#SBATCH -N16 --time=5:00:00  -J srBig  -q regular
+#-SBATCH -C gpu -A nstaff_g
+#SBATCH -C gpu -A  m3363_g  # Peter
+#SBATCH --image=nersc/pytorch:ngc-21.08-v2 # hangs for N>1
+#-SBATCH --image=nersc/pytorch:ngc-22.09-v0
 #-SBATCH  -x cgpu08 # block sick nodes
 #SBATCH --array 1-1
 # - - - E N D    O F    SLURM    C O M M A N D S
@@ -14,9 +14,11 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=benchmk_50eaf423
-dataName=flux-Nyx2022a-r2c14;  epochs=320  # do -N4 -t30m
-dataName=flux-Nyx2022a-r2c99;  epochs=1000  # do -N8 -t6h
+design=benchmk_flux1
+dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=450  # do -N16
+
+#dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=10  # do -N8 : 8sec/epoch -> 180epoch/3min
+
 doHPO=0  # on/off switch
 
 N=${SLURM_NNODES}
@@ -79,15 +81,15 @@ EOF`
     echo HPO otherParStr=${otherParStr}=
 fi
 
-baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outFluxA
-#baseDir=$SCRATCH/tmp_NyxHydro512A/
+#baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
+baseDir=$SCRATCH/tmp_Nyx2022a-flux/jobs
 wrkDir=${baseDir}/$wrkSufix
 export TORCH_HOME=$baseDir  # for storing VGG model
 
 echo "S: jobId=$SLURM_JOBID  wrkSufix=$wrkSufix  wrkDir=$wrkDir" 
 date
 
-export CMD=" python3    train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId  --dataName $dataName   $otherParStr "
+export CMD=" python3   -u  train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId  --dataName $dataName   $otherParStr "
 
 echo S: CMD=$CMD  ENGINE=$ENGINE
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  *.hpar.yaml  "
@@ -109,7 +111,7 @@ sleep 3
 echo S:done train
 time srun -n1  $ENGINE   ./predict.py --basePath $baseDir --expName  $jobId  --genSol last  >& log.predict
 # spare  --doFOM
-# manual: cd ...;  srun -n1 shifter  ./predict.py --basePath . --expName .
+# manual: cd snad-box ;  srun -n1 shifter  ./predict.py --basePath . --expName . 
 echo S:done predict
 date
 

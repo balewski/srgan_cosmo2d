@@ -1,4 +1,4 @@
-from toolbox.tmp_figures import ( plt_slices,  plt_power )
+from toolbox.TBS_figures import ( plt_slices,  plt_power )
 import logging  # text-to-screen
 from torch.utils.tensorboard import SummaryWriter
 import os

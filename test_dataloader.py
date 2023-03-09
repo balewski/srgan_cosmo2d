@@ -4,8 +4,6 @@
 read test data from HD5
  ./test_dataloader.py   --dataName  univL7cola_dm2d_202204_c20 --facility corigpu -g 1
 
- ./test_dataloader.py   --dataName  univL9cola_dm2d_202204_c30 --facility corigpu -g 1
-
 
 """
 
@@ -28,7 +26,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
 
-    parser.add_argument("--dataName",default="flux-Nyx2022a-r2c14",help="[.h5] name data  file")
+    parser.add_argument("--dataName",default="flux-1LR4HR-Nyx2022a-r2c14",help="[.h5] name data  file")
     parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
     parser.add_argument("--facility", default='perlmutter', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')
@@ -84,14 +82,6 @@ if __name__ == '__main__':
     # capture other args values
     params['h5_path']=facCf['data_path']
     params['h5_name']=args.dataName+'.h5'
-    '''
-    params['exp_name']=args.expName
-
-    if args.basePath==None:
-      args.basePath=facCf['base_path']
-
-    params['exp_path']=os.path.join(args.basePath,args.expName)
-    '''
     #.... update selected params based on runtime config
     if args.numSamp!=None:  # reduce num steps/epoch - code testing
         params['max_glob_samples_per_epoch']=args.numSamp

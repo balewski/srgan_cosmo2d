@@ -30,8 +30,8 @@ logging.basicConfig(format='%(levelname)s - %(message)s', level=logging.INFO)
 from toolbox.Model_2d import Generator
 from toolbox.Util_IOfunc import read_yaml, write_yaml
 from toolbox.Dataloader_H5 import get_data_loader
-from toolbox.Util_Cosmo2d import  density_2Dfield_numpy,powerSpect_2Dfield_numpy, srgan2d_FOM1, median_conf_V
-from toolbox.Util_H5io3 import  write3_data_hdf5
+from toolbox.Util_Cosmo2d import  density_2Dfield_numpy,powerSpect_2Dfield_numpy, srgan2d_FOM1 #, median_conf_V
+from toolbox.Util_H5io4 import  write4_data_hdf5, read4_data_hdf5
 
 
 import argparse
@@ -58,20 +58,6 @@ def get_parser():
     args.expPath=os.path.join(args.basePath,args.expName)
     for arg in vars(args):  print( 'myArg:',arg, getattr(args, arg))
     return args
-
-#...!...!..................
-def XXinterpolate_field_to_hr(lr,upscale):
-    #print('lrImg',lrImg.shape) # B,C,W,H
-    #print('PR one hr:',hr[0].shape,np.sum(hr[0]),np.min(hr),', lr:',sr[0].shape,np.sum(sr[0]))
-    #print('lrImg.T',lrImg.T.shape) # C,W,H
-    # must put channel as the last axis
-    x2=lr.T -1 # H,W,C,B  abd  undo '1+rho'
-    x3,_=interpolate_2Dfield(x2, upscale)
-    #print('x3',x3.shape)
-    fact=upscale*upscale
-    ilr=x3.T/fact +1  # preserve the integral, restore '1+rho' for consistency
-    #print('ilr',ilr.shape) # B,C,W,H
-    return ilr
 
 #...!...!..................
 def histo_dens(hrA,srA,Rall):  # input: images = log(rho+1) 
@@ -110,15 +96,16 @@ def model_infer(model,data_loader,trainPar):
     lr_size=cfds['lr_size']
     inp_chan=trainPar['num_inp_chan']
     upscale=cfds['upscale_factor']
+    num_hrFin_chan=cfds['upscale_factor']
+    ch1=num_hrFin_chan//2
     print('predict for num_samp=',num_samp,', hr_size=',hr_size,inp_chan)
     
     # clever list-->numpy conversion, Thorsten's idea
     class Empty: pass
     F=Empty()  # fields (not images)
-    F.hrFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
-    F.hrIni=np.zeros_like(F.hrFin)
-    F.srFin=np.zeros_like(F.hrFin)
-    #XF.ilrFin=np.zeros_like(F.hrFin)
+    F.hrFin=np.zeros([num_samp,num_hrFin_chan,hr_size,hr_size],dtype=np.float32)
+    F.srFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
+    F.hrIni=np.zeros_like(F.srFin)   
     F.lrFin=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
     print('F-container',F.hrFin.shape,list(F.__dict__))
     
@@ -146,8 +133,8 @@ def model_infer(model,data_loader,trainPar):
             srFin=srFinImg.detach().numpy()
             #print('P2:',hrIni.shape, np.max(hrIni),np.max(hrFin),'std:',np.std(hrIni),np.std(hrFin))
 
-            F.hrFin[nSamp:n2,:]=hrFin    
-            F.hrIni[nSamp:n2,:]=hrIni
+            F.hrFin[nSamp:n2,:]=hrFin # keep all 4 slices
+            F.hrIni[nSamp:n2,:]=hrIni[:,ch1:ch1+1]    
             F.srFin[nSamp:n2,:]=srFin
             F.lrFin[nSamp:n2,:]=lrFin
             #XF.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)
@@ -161,7 +148,6 @@ def model_infer(model,data_loader,trainPar):
             nStep+=1
     
     print('infere done, nSamp=%d nStep=%d'%(nSamp,nStep),flush=True)
-
 
     fomD=None
     if args.doFOM:
@@ -198,10 +184,16 @@ if __name__ == '__main__':
     if args.numSamples!=None:
         trainPar['max_glob_samples_per_epoch' ] = args.numSamples
 
+        
     #?trainPar['field2d'].pop('sr')
     print('trainMD:',list(trainMD))
     if args.verb>1:pprint(trainPar)
- 
+
+    # read flux& fft errors just to store them in the output
+    cf=trainPar
+    inpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
+    normD,normMD=read4_data_hdf5(inpF)
+   
     device   = torch.device("cpu")
     #device = torch.device("cuda")
     #assert torch.cuda.is_available()
@@ -221,12 +213,16 @@ if __name__ == '__main__':
 
     trainPar['num_cpu_workers']=1
     data_loader = get_data_loader(trainPar, args.domain, verb=1)
- 
+
+    # ..... THE  PREDICTIONS ....
     startT=time.time()
     bigD,nSamp,fomD=model_infer(model,data_loader,trainPar)
     predTime=time.time()-startT
-    print('M: infer :   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
-
+    print('\nM: PREDICT   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
+    #.... predictions done
+    bigD['flux_std']=normD['std diff flux']
+    bigD['lnfft_std']=normD['std diff log fft']
+    
     sumRec={}
     sumRec['domain']=args.domain
     sumRec['exp_name']=trainPar['exp_name']
@@ -243,6 +239,6 @@ if __name__ == '__main__':
     if args.outPath=='same' : args.outPath=args.expPath
 
     outF=os.path.join(args.outPath,'pred-%s-%s.h5'%(args.domain,sumRec['gen_sol']))
-    write3_data_hdf5(bigD,outF,metaD=sumRec)
+    write4_data_hdf5(bigD,outF,metaD=sumRec)
 
     print('M:done')

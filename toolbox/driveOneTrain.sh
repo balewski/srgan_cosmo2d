@@ -1,15 +1,5 @@
 #!/bin/bash 
-#Xexport HOME=`pwd`  # to make MIopen happy, only Crusher needs it for
-#Xmkdir -p .config/miopen  # for MIOpen
-#  MIOpen Error: boost::filesystem::create_directories: Read-only file system: "/ccs/home/balewski/.config"
-# MIOpen: Persistent Program Cache
-# based on https://github.com/ROCmSoftwarePlatform/MIOpen#persistent-program-cache
-#Users can also disable the cache during runtime using the environmental variable:
 
-# tested on Feb-13 , no benefit any more
-#export MIOPEN_DISABLE_CACHE=1 # --> Read-only file system: "/ccs/home/balewski/.config
-#export MIOPEN_CUSTOM_CACHE_DIR=`pwd`
-export HOME=/tmp/  # suggested by one of  AIML staff at OLCF
 
 if [ ${SLURM_PROCID} -eq 0 ] ; then
     [[ -z "${SHIFTER_RUNTIME}" ]]  &&  echo NOT-in-shifter  || echo in-shifter
@@ -21,6 +11,7 @@ if [ ${SLURM_PROCID} -eq 0 ] ; then
     free -g
     echo D: num-cpus:`nproc --all`
     if [[ `hostname -f ` == *crusher.olcf* ]]   ; then
+	export HOME=/tmp/  # suggested by one of  AIML staff at OLCF
 	echo "D: Crusher AMD, HOME="$HOME, MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_CUSTOM_CACHE_DIR  MIOPEN_DISABLE_CACHE=$MIOPEN_DISABLE_CACHE
 	#Xecho "D:forMIOpen "`ls -l $HOME/.config`
 	rocm-smi --showid   # AMD

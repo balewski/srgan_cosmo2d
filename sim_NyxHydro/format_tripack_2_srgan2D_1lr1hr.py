@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 '''
  format  tri-pack.hd5  into a single h5
-
-?salloc  -q interactive  -t4:00:00 -A m3363 -C cpu    -N 1 
+stores 1 HR slice for each LR slice
 
 '''
 
