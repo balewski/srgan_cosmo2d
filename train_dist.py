@@ -45,7 +45,7 @@ cd  $SCRATCH/tmp_NyxHydro4kG/
 OR
 cd /global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
  module load pytorch
- tensorboard --port 9600 --logdir=exp07
+ tensorboard --port 9600 --logdir=tb
 
 /pscratch/sd/b/balewski/tmp_NyxHydro4kG
 
@@ -180,7 +180,7 @@ if __name__ == '__main__':
         params['train_conf']['adv_epochs']= args.epochs
     for x in ["D_LR","G_LR"]: 
         if params['train_conf'][x]['decay/epochs']=='auto':
-            params['train_conf'][x]['decay/epochs']=params['train_conf']['adv_epochs']//3
+            params['train_conf'][x]['decay/epochs']=int(params['train_conf']['adv_epochs']*0.7)
         
     trainer = Trainer(params)
     

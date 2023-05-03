@@ -58,16 +58,23 @@ class Plotter(Plotter_Backbone):
         ncol,nrow=4,1; xyIn=(17.5,4.5)
         fig=self.plt.figure(figId,facecolor='white', figsize=xyIn)
         jy_hr=plDD['skewer_iy']
-        cmap='Blues'
-        if 'fft' in myType:    cmap ='Paired'
         
         for i,kr in  enumerate(plDD['fL']):
             ax=self.plt.subplot(nrow,ncol,1+i)
             if 'fft' in myType:
+                cmap ='Paired'
                 kr+='_0'
                 img=fieldD[myType][kr]
             else:
                 img=fieldD[myType][kr][0]
+                cmap='Blues'
+                if kr=='hrIni': # Peter: show HR-SR
+                    imgHR=fieldD[myType]['hrFin'][0]
+                    imgSR=fieldD[myType]['srFin'][0]
+                    kr='(hr-sr)Fin'
+                    img=imgHR-imgSR
+                    cmap ='seismic'
+                    
             #print('zzz2',i,img.shape)
             zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
@@ -99,18 +106,30 @@ class Plotter(Plotter_Backbone):
         num_hrFin_chan=dataT.shape[0]
         for i in range(num_hrFin_chan):  # show 4 possible HR skewers
             data=dataT[i][jy_hr]
+            sumF=np.sum(data)
             #print('zzz',i,dataT.shape,data.shape)
-            ax.step(binX,data,where='post',label='HR_%d'%i,color='k',lw=1)          
+            ax.step(binX,data,where='post',label='HR_%d %d'%(i,sumF),color='k',lw=1)          
+
+        #.... plot LR
+        upscale=predMD['inpMD']['upscale_factor']  # hack
+        jy_lr=jy_hr//upscale
+        data=fieldD['flux']['lrFin'][0][jy_lr]
+        sumF=np.sum(data)
+        #print('lll',data.shape, binX[::upscale].shape)
+        ax.step(binX[::upscale],data,where='post',label='LR    %d*'%(sumF*upscale),color='dodgerblue',lw=1.3) 
        
         #.... plot SR prediction
-        data=fieldD['flux']['srFin'][0][jy_hr]        
+        data=fieldD['flux']['srFin'][0][jy_hr]
+        sumF=np.sum(data)
+        #print('sumF:',sumF)
         ax.step(binX,data,where='post',color='r',lw=1)
-        ax.errorbar(binX[::10],data[::10],yerr=dataEr[::10],color='r',fmt='+',label='SR')
+        ax.errorbar(binX[::10],data[::10],yerr=dataEr[::10],color='r',fmt='+',label='SR    %.0f'%sumF)
+
         
         ax.grid()       
         tit='skewer idx=%d  jy_hr=%d'%(args.index,jy_hr)
         ax.set(title=tit, ylabel='flux',xlabel='z*')
-        ax.legend(loc='best')
+        ax.legend(loc='best',title='res   sumFlux')
 
 
 #...!...!..................

@@ -11,7 +11,7 @@ from toolbox.Dataloader_H5 import get_data_loader  # real data from a single fil
 from toolbox.Util_IOfunc import read_yaml,dateT2Str
 from toolbox.Util_H5io4 import  read4_data_hdf5, write4_data_hdf5
 from toolbox.Model_2d import Generator, Discriminator, ContentLoss
-from toolbox.Util_Torch import all_reduce_dict, torch_compute_fft, torchD_to_floatD,integral_loss_func
+from toolbox.Util_Torch import all_reduce_dict, torch_compute_fft_bin0, torchD_to_floatD,integral_loss_func
 
 from toolbox.Util_Torch import custom_LR_scheduleB as custom_LR_schedule
 from toolbox.TBSwriter import TBSwriter
@@ -351,7 +351,7 @@ class Trainer(TBSwriter):
                 rec3={'train':kfac*locTrainSamp/Ttrain}  # train glob samp/msec
                 if epoch>start_epoch: TperEpoch.append(Ttot)
 
-                rec3.update({'val:20':kfac*locValSamp/Tval/20.})  # val glob samp/msec
+                rec3.update({'val:10':kfac*locValSamp/Tval/10.})  # val glob samp/msec
                 self.TBSwriter.add_scalars("Train_adv/speed_global (samp:sec)",rec3 , epoch)
                 recLab='Train_adv/epoch_time (sec), '+self.params['facility']
                 self.TBSwriter.add_scalar(recLab, Ttot,epoch)
@@ -522,7 +522,7 @@ class Trainer(TBSwriter):
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
             num_hrFin_chan=self.params['data_shape']['upscale_factor']
             cSum=0;   pSum=0; mSum=0; fSum=0
-            sr_fft=torch_compute_fft( sr) /self.fft_norm_tensor
+            sr_fft=torch_compute_fft_bin0( sr) /self.fft_norm_tensor
             #print('zzz',sr_fft.shape,self.weight_fft.shape);
             #sr_fft=sr_fft
             #ok56
@@ -530,7 +530,7 @@ class Trainer(TBSwriter):
                 cSum+=self.content_criterion(sr, hrFin[:,hrc:hrc+1])
                 mSum+=self.msum_criterion(sr, hrFin[:,hrc:hrc+1])
                 pSum+=self.pixel_criterion(sr, hrFin[:,hrc:hrc+1])
-                hr_fft=torch_compute_fft(hrFin[:,hrc:hrc+1]) /self.fft_norm_tensor
+                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1]) /self.fft_norm_tensor
                 fSum=self.fft_criterion(sr_fft, hr_fft)
             
             content_loss =  trCf['content_weight'] *cSum           

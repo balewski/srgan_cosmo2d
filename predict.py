@@ -45,7 +45,7 @@ def get_parser():
                         , help="trained model ")
     parser.add_argument("--expName", default='exp03', help="main dir, train_summary stored there")
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
-    parser.add_argument("-n", "--numSamples", type=int, default=1000, help="limit samples to predict")
+    parser.add_argument("-n", "--numSamples", type=int, default=2000, help="limit samples to predict")
     parser.add_argument("--domain",default='test', help="domain is the dataset for which predictions are made, typically: test")
 
     parser.add_argument("-o", "--outPath", default='same',help="output path for plots and tables")

@@ -26,7 +26,7 @@ def get_parser():
     parser.add_argument("-s","--genSol",default="last",help="generator solution")
     parser.add_argument("-o","--outPath", default='out/',help="output path for plots and tables")
     parser.add_argument("-p", "--showPlots",  default='abc', nargs='+',help="abc-string listing shown plots")
-
+    parser.add_argument("-n", "--numSamples", type=int, default=None, help="limit samples to predict")
     parser.add_argument("-d","--dataPath",
                         #default='/global/homes/b/balewski/prje/tmp_srganA/'
                         default='/pscratch/sd/b/balewski/tmp_NyxHydro512A/'
@@ -106,13 +106,12 @@ class Plotter(Plotter_Backbone):
             ax.plot(X,Ymed[1],linewidth=3,color='k',linestyle=':')
             ax.plot(X,Ymed[2],linewidth=3,color='k',linestyle=':',label='med+/-std')
 
-        if isinstance(Yavr, np.ndarray) and 0:
+        if 0 and isinstance(Yavr, np.ndarray) :
             ax.plot(X,Yavr,linewidth=3,color='gold',linestyle='--',label='average')
             ax.plot(X,Yavr-Ystd,linewidth=3,color='gold',linestyle=':')
             ax.plot(X,Yavr+Ystd,linewidth=3,color='gold',linestyle=':',label='avr+/-std')
 
-
-        #ax.legend(loc='best', title='summary stats')
+        
         ax.legend(loc='upper left')
         ax.axhline(1,linestyle='--')
         ax.grid()
@@ -121,8 +120,9 @@ class Plotter(Plotter_Backbone):
             ax.set_ylim(0.4,1.6)
             ax.set(title=tit, xlabel='flux/pixel',ylabel=' D(flux)SR / D(flux)HR' )
         else:
-            ax.set_ylim(0.1,10.)
+            ax.set_ylim(0.1,5.)
             ax.set(title=tit, xlabel='k(z*)',ylabel=' power(SR) / power(HR)' )
+            ax.set_xlim(1,30.) ;  ax.set_xscale('log')
         ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
     
      
@@ -164,8 +164,10 @@ if __name__ == "__main__":
     HR=fieldD['hrFin'][:,0]  # skip C-index, for now it is 1 channel
     SR=fieldD['srFin'][:,0]
     
-    if 0:  #reduce num samples for debugging
-        HR=HR[:100]; SR=SR[:100]
+    if args.numSamples!=None:  #reduce num samples for debugging
+        nSamp=args.numSamples
+        HR=HR[:nSamp]; SR=SR[:nSamp]
+        print('M: reduce to nSamp=',nSamp)
         
     space_step=predMD['inpMD']['cell_size']['HR']  # the same for SR
     nSamp=HR.shape[0]
@@ -184,6 +186,12 @@ if __name__ == "__main__":
         kphys,kidx,Phr=powerSpect_2DfieldBin0_numpy(HR[i],d=space_step)
         _,_,Psr    =powerSpect_2DfieldBin0_numpy(SR[i],d=space_step)
         #print('pp',Psr.shape,kphys[::5],kidx[::5]); aa1
+
+        if 0: # Venkitesh: compute FFT metric for a pair of real images shifter by 1 bin
+            ii=(i+1)%nSamp
+            _,_,Psr    =powerSpect_2DfieldBin0_numpy(HR[ii],d=space_step)
+            #_,_,Phr    =powerSpect_2DfieldBin0_numpy(SR[ii],d=space_step)
+
         
         p_rel=Psr/Phr
         P.append(p_rel)
