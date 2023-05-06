@@ -119,10 +119,10 @@ class Plotter(Plotter_Backbone):
         if obsN=='flux':
             ax.set_ylim(0.4,1.6)
             ax.set(title=tit, xlabel='flux/pixel',ylabel=' D(flux)SR / D(flux)HR' )
-        else:
-            ax.set_ylim(0.1,5.)
+        else:  # it is FFT
+            ax.set_ylim(0.4,1.6)
             ax.set(title=tit, xlabel='k(z*)',ylabel=' power(SR) / power(HR)' )
-            ax.set_xlim(1,30.) ;  ax.set_xscale('log')
+            ax.set_xlim(1,20.) ;  ax.set_xscale('log')
         ax.text(0.01,0.02,fomTxt,transform=ax.transAxes,color='k')
     
      

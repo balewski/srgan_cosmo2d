@@ -33,7 +33,7 @@ def torchD_to_floatD(inp):
     
 
 #...!...!..................
-def torch_compute_fft_bin0(fieldBatch):  # used in training loss
+def torch_compute_fft_bin0(fieldBatch,max_k):  # used in training loss, clip at max_k
     #assert fieldB.shape[1]==1 # 1 channel
     fourier_image = torch.fft.fftn(fieldBatch) #FFTs only the last two dimensions by default.
     #print('FTCS:inp',fieldBatch.shape,'fft:',fourier_image.shape)
@@ -42,8 +42,8 @@ def torch_compute_fft_bin0(fieldBatch):  # used in training loss
     dimFft=dimEuc//2  # clip FFT image to a quadrant
     fourier_image=fourier_image[:,:,:dimFft,:dimFft]    
     fourier_amplitudes2= torch.abs(fourier_image)**2
-    #print('FFT_bin0 fourier_amplitudes2',fourier_amplitudes2.shape)
-    fourier_amp2_bin0=fourier_amplitudes2[:,:,0]
+    #print('FFT_bin0 fourier_amplitudes2',fourier_amplitudes2.shape,'max_k=',max_k)
+    fourier_amp2_bin0=fourier_amplitudes2[:,:max_k,0]
     return torch.log(fourier_amp2_bin0+1.e-20)  # was +1. before log()
 
 #...!...!..................

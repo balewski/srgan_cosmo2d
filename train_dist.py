@@ -51,8 +51,15 @@ cd /global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
 
 ssh summit-tb
 cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/
-module load open-ce/1.1.3-py38-0
- tensorboard  --port 9700 --logdir=1645832
+
+shifter  --image=nersc/pytorch:ngc-21.08-v2 bash
+ tensorboard  --port 9600 --logdir=tb
+ http://localhost:9600
+
+
+ python -c 'import torch; print(torch.__version__)'
+ python -c 'import tensorboard; print(tensorboard.__version__)'
+
 
 '''
 

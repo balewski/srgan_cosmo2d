@@ -1,7 +1,7 @@
 #!/bin/bash 
 #SBATCH  --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#-SBATCH -N8 --time=30:00 -q debug
 #SBATCH -N16 --time=8:00:00  -J srBig  -q regular
+#-SBATCH -N8 --time=30:00 -q debug
 #-SBATCH -C gpu -A nstaff_g
 #SBATCH -C gpu -A  m3363_g  # Peter
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2 # hangs for N>1
@@ -9,15 +9,15 @@
 #-SBATCH  -x cgpu08 # block sick nodes
 #SBATCH --array 1-1
 # - - - E N D    O F    SLURM    C O M M A N D S
-#  Licenses=scratch
+#  Licenses=scratch ??
 
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=benchmk_flux2
-dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=120  # do -N16
+dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=400  # do -N16
 
-#dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=10  # do -N8 : 8sec/epoch -> 180epoch/3min
+#dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=10  # ?? do -N8 : 8sec/epoch -> 180epoch/3min
 
 doHPO=0  # on/off switch
 
@@ -111,9 +111,12 @@ sleep 3
 echo S:done train
 time srun -n1  $ENGINE   ./predict.py --basePath $baseDir --expName  $jobId  --genSol last  >& log.predict
 # spare  --doFOM
-# manual: cd snad-box ;  srun -n1 shifter  ./predict.py --basePath . --expName .  --genSol epoch100
+# manual: cd sand-box ;  srun -n1 shifter  ./predict.py --basePath . --expName .  --genSol epoch100
 echo S:done predict
 date
+
+chmod a+rx $wrkDir
+chmod a+r ${wrkDir}/*
 
 #Cancel all my jobs:
 #  squeue -u $USER -h | awk '{print $1}' | xargs scancel

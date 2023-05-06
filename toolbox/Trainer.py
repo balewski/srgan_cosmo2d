@@ -522,7 +522,7 @@ class Trainer(TBSwriter):
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
             num_hrFin_chan=self.params['data_shape']['upscale_factor']
             cSum=0;   pSum=0; mSum=0; fSum=0
-            sr_fft=torch_compute_fft_bin0( sr) /self.fft_norm_tensor
+            sr_fft=torch_compute_fft_bin0( sr, trCf['fft_max_k']) /self.fft_norm_tensor
             #print('zzz',sr_fft.shape,self.weight_fft.shape);
             #sr_fft=sr_fft
             #ok56
@@ -530,7 +530,7 @@ class Trainer(TBSwriter):
                 cSum+=self.content_criterion(sr, hrFin[:,hrc:hrc+1])
                 mSum+=self.msum_criterion(sr, hrFin[:,hrc:hrc+1])
                 pSum+=self.pixel_criterion(sr, hrFin[:,hrc:hrc+1])
-                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1]) /self.fft_norm_tensor
+                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1], trCf['fft_max_k']) /self.fft_norm_tensor
                 fSum=self.fft_criterion(sr_fft, hr_fft)
             
             content_loss =  trCf['content_weight'] *cSum           
