@@ -36,7 +36,7 @@ export SLURM_ARRAY_TASK_ID=44
 ./batchShifter.slr 
 
 
-On Summit: salloc, as corigpu, use facility=summitlogin
+On Summit: salloc,  use facility=summitlogin
 
 
 ***** Display TB *****
@@ -52,10 +52,9 @@ cd /global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
 ssh summit-tb
 cd /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kF/
 
-shifter  --image=nersc/pytorch:ngc-21.08-v2 bash
+ shifter  --image=nersc/pytorch:ngc-21.08-v2 bash
  tensorboard  --port 9600 --logdir=tb
  http://localhost:9600
-
 
  python -c 'import torch; print(torch.__version__)'
  python -c 'import tensorboard; print(tensorboard.__version__)'

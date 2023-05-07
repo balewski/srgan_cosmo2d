@@ -1,6 +1,6 @@
 #!/bin/bash 
 #SBATCH  --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH -N16 --time=8:00:00  -J srBig  -q regular
+#SBATCH -N16 --time=3:00:00  -J srBig  -q regular
 #-SBATCH -N8 --time=30:00 -q debug
 #-SBATCH -C gpu -A nstaff_g
 #SBATCH -C gpu -A  m3363_g  # Peter
@@ -15,7 +15,7 @@ nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
 design=benchmk_flux2
-dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=400  # do -N16
+dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=150  # do -N16
 
 #dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=10  # ?? do -N8 : 8sec/epoch -> 180epoch/3min
 
