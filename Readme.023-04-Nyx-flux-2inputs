@@ -1,0 +1,8 @@
+After Hyunbae concluded only P(k) for k<10 is relevant 
+this code is fully functional
+it does SR x4, from 128^2 --> 512^2
+Current ML model takes 3 inputs during training : HR(z=50), HR(z=3), LR(z=3)
+and takes 2 inputs during inference:  HR(z=50),  LR(z=3)
+
+Abandon at this stage. Next I'll remove  HR(z=50), next increase zoom from x4 to x8
+

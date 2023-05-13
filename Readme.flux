@@ -22,6 +22,7 @@ z=3 I'll use [LR,HR]   record:   derived_fields/tau_red
 Persistent loaction at:  ~/prje/superRes-Nyx2022a-flux/tripack_cubes
 215 GB
 
+~/srgan_cosmo2d/sim_NyxHydro> 
 ./make_tripack_NyxHydroH5.py --basePath  /pscratch/sd/b/balewski/tmp_NyxProd2  --jobName 2968683_100univ
 
 
