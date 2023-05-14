@@ -146,7 +146,7 @@ class Trainer(TBSwriter):
         self.msum_criterion  = integral_loss_func
 
         #.... load weights for loss functions and store them on device
-        self.load_loss_norm()
+        #YYself.load_loss_norm()
         if params['world_size']>1:  self.dist.barrier()  # I want an order in execution
         
         self.content_criterion= ContentLoss().to(self.device)    # Content loss is activation(?) of 36th layer in VGG19
@@ -522,16 +522,15 @@ class Trainer(TBSwriter):
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
             num_hrFin_chan=self.params['data_shape']['upscale_factor']
             cSum=0;   pSum=0; mSum=0; fSum=0
-            sr_fft=torch_compute_fft_bin0( sr, trCf['fft_max_k']) /self.fft_norm_tensor
+            sr_fft=torch_compute_fft_bin0( sr, trCf['fft_max_k']) #YY/self.fft_norm_tensor
             #print('zzz',sr_fft.shape,self.weight_fft.shape);
-            #sr_fft=sr_fft
-            #ok56
+            
             for hrc in range(num_hrFin_chan):
                 cSum+=self.content_criterion(sr, hrFin[:,hrc:hrc+1])
                 mSum+=self.msum_criterion(sr, hrFin[:,hrc:hrc+1])
                 pSum+=self.pixel_criterion(sr, hrFin[:,hrc:hrc+1])
-                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1], trCf['fft_max_k']) /self.fft_norm_tensor
-                fSum=self.fft_criterion(sr_fft, hr_fft)
+                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1], trCf['fft_max_k']) #YY/self.fft_norm_tensor
+                fSum+=self.fft_criterion(sr_fft, hr_fft)
             
             content_loss =  trCf['content_weight'] *cSum           
             pixel_loss  = warmAtten *trCf['pixel_weight'] *pSum
@@ -651,36 +650,5 @@ class Trainer(TBSwriter):
 
         return cnt['psnr']
 
-#...!...!..................
-    def load_loss_norm(self):
-        cf=self.params
-        inpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
-        normD,normMD=read4_data_hdf5(inpF,verb=self.verb)
-        #pprint(cf)
-        #  'data_shape': {'hr_size': 512, 'lr_size': 128, 'upscale_factor': 4},
-        nhr=cf['data_shape']['hr_size']
-        lbs=cf['local_batch_size']
-
-        #.... FFT
-        one=normD['std diff log fft']
-        ndx=one.shape[0]
-        assert ndx==nhr//2
-        nz=np.count_nonzero(one<=0)
-        assert nz==0  # std must be >0
-        one=np.clip(one,0.5,None)
-                
-        wfft=np.broadcast_to(one,(lbs,1,ndx,ndx))
-        #goal dims:  torch.Size([4, 1, 256, 256])        
-        #1if self.verb: print('wfft sh',wfft.shape,'nz=',nz)
-
-        if 0 and self.verb:
-            print('smaple wfft')
-            print(wfft[0,0,0,::10])
-            print(wfft[0,0,7,::10])
-            print(wfft[2,0,0,::10])
-            print(wfft[0,0,::10,60])
-
-        self.fft_norm_tensor=torch.from_numpy(np.copy(wfft )).to(self.device) 
-        
-        
+      
         

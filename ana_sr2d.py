@@ -93,15 +93,15 @@ class Plotter(Plotter_Backbone):
 #...!...!..................
     def skewer_1d(self,fieldD,metaD,plDD,figId=4):
         figId=self.smart_append(figId)
-        #jx_hr,jy_hrjy_hr=metaD['hrFin']['zmax_xyz'][:2]
+        
         jy_hr=plDD['skewer_iy']
         ncol,nrow=1,1
         self.plt.figure(figId,facecolor='white', figsize=(15,5))
         ax=self.plt.subplot(nrow,ncol,1)
         
         #... plot truth
-        dataT=fieldD['flux']['hrFin']  #
-        dataEr=fieldD['flux_std']        
+        dataT=fieldD['flux']['hrFin']
+        #YYdataEr=fieldD['flux_std']        
         binX=np.arange(dataEr.shape[0])
         num_hrFin_chan=dataT.shape[0]
         for i in range(num_hrFin_chan):  # show 4 possible HR skewers
@@ -214,8 +214,8 @@ if __name__ == "__main__":
     fL=[ 'lrFin', 'hrFin', 'srFin']
 
     fieldD={'flux':{}, 'ln fftA2':{}}
-    fieldD['flux']={ xr:bigD[xr][args.index] for xr in fL}  #XXX skip Chan-index
-    fieldD['flux_std']=bigD['flux_std']
+    fieldD['flux']={ xr:bigD[xr][args.index] for xr in fL}  
+    #YYfieldD['flux_std']=bigD['flux_std']
     
     metaD=post_process_srgan2D_fileds(fieldD,predMD['inpMD']['cell_size']) #predMD['field2d'])
     print('M:fdk',fieldD.keys(), bigD['hrFin'].shape)

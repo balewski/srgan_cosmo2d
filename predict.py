@@ -192,8 +192,8 @@ if __name__ == '__main__':
 
     # read flux& fft errors just to store them in the output
     cf=trainPar
-    inpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
-    normD,normMD=read4_data_hdf5(inpF)
+    #YYinpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
+    #YYnormD,normMD=read4_data_hdf5(inpF)
    
     device   = torch.device("cpu")
     #device = torch.device("cuda")
@@ -221,8 +221,8 @@ if __name__ == '__main__':
     predTime=time.time()-startT
     print('\nM: PREDICT   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
     #.... predictions done
-    bigD['flux_std']=normD['std diff flux']
-    bigD['lnfft_std']=normD['std diff log fft']
+    #YYbigD['flux_std']=normD['std diff flux']
+    #YYbigD['lnfft_std']=normD['std diff log fft']
     
     sumRec={}
     sumRec['domain']=args.domain
