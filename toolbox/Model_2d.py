@@ -186,8 +186,7 @@ class Generator(nn.Module):
         hpar1=conf['conv_block3']
         self.conv_block3 = nn.ModuleList()
         cnn_stride=1
-        num_hrIni_chan=1<<conf['num_upsamp_bits'] #  must match HR-data
-        inp_chan=conf['first_cnn_chan']+num_hrIni_chan  # input will be concatenation w/ hrIni
+        inp_chan=conf['first_cnn_chan'] 
         for out_chan,cnnker in zip(hpar1['filter'],hpar1['kernel']):
             # class _ConvMd( in_channels, out_channels, kernel_size, stride,
             #print('blk3:', out_chan)            
@@ -205,13 +204,13 @@ class Generator(nn.Module):
         self._initialize_weights()
 
         
-    def forward(self, xx: Tensor) -> Tensor:
-        x1,x2=xx  # hrIni,lrFin
+    def forward(self, lrFin: Tensor) -> Tensor:
+        #Yx1,x2=xx  # hrIni,lrFin
         #print('gfx0',x1.shape,x2.shape)
-        return self._forward_impl(x1,x2)
+        return self._forward_impl(lrFin)
 
-    # Support torch.script function.
-    def _forward_impl(self, x1,x2) -> Tensor:
+    
+    def _forward_impl(self, x2) -> Tensor:  # x2 is lrFin
         #print('gfx',x.shape,x.dtype)
         out1 = self.conv_block1(x2)
         out = self.trunk(out1)
@@ -221,10 +220,11 @@ class Generator(nn.Module):
         #print('gf2b',out.shape)
         out = self.upsampling(out)
         #print('gf2c',out.shape)
-        outs= torch.cat([out, x1], dim=1)
+        #Youts= torch.cat([out, x1], dim=1)
         #print('gf2s',outs.shape)
         #out = self.conv_block3(out)
-        x=outs
+        #Yx=outs
+        x=out
         for i,lyr in enumerate(self.conv_block3):
             #if self.verb>2: print('Jcnn-lyr: ',i,lyr)
             x=lyr(x)

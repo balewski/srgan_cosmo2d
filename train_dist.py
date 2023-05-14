@@ -28,11 +28,11 @@ salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorc
 Quick test:
 salloc -N1
  export MASTER_ADDR=`hostname`  
-srun -n 1  shifter  python -u ./train_dist.py   --numGlobSamp 256  --expName exp2   --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --dataName flux-1LR4HR-Nyx2022a-r2c14 --epochs 4 --design benchmk_flux1
+srun -n 1  shifter  python -u ./train_dist.py   --numGlobSamp 256  --expName exp2 --dataName flux-1LR4HR-Nyx2022a-r2c14   --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --epochs 4 --design benchmk_flux2
 
 If you run SLurm scripts:
-export SLURM_ARRAY_JOB_ID=555
-export SLURM_ARRAY_TASK_ID=44
+export SLURM_ARRAY_JOB_ID=556
+export SLURM_ARRAY_TASK_ID=45
 ./batchShifter.slr 
 
 

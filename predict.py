@@ -105,7 +105,7 @@ def model_infer(model,data_loader,trainPar):
     F=Empty()  # fields (not images)
     F.hrFin=np.zeros([num_samp,num_hrFin_chan,hr_size,hr_size],dtype=np.float32)
     F.srFin=np.zeros([num_samp,inp_chan,hr_size,hr_size],dtype=np.float32)
-    F.hrIni=np.zeros_like(F.srFin)   
+    #YF.hrIni=np.zeros_like(F.srFin)   
     F.lrFin=np.zeros([num_samp,inp_chan,lr_size,lr_size],dtype=np.float32)
     print('F-container',F.hrFin.shape,list(F.__dict__))
     
@@ -118,10 +118,11 @@ def model_infer(model,data_loader,trainPar):
     nStep=0
     
     with torch.no_grad():
-        for hrIniImg,lrFinImg,hrFinImg in data_loader:
-            hrIniImg_dev, lrImg_dev, hrImg_dev = hrIniImg.to(device), lrFinImg.to(device), hrFinImg.to(device)
+        for lrFinImg,hrFinImg in data_loader:
+            #YhrIniImg_dev, lrImg_dev, hrImg_dev = hrIniImg.to(device), lrFinImg.to(device), hrFinImg.to(device)
+            lrImg_dev, hrImg_dev =  lrFinImg.to(device), hrFinImg.to(device)
             #print('P1:',hrIniImg.shape, np.max(hrIniImg),np.max(hrFinImg))
-            srImg_dev = model([hrIniImg_dev,lrImg_dev]) # THE PREDICTION      
+            srImg_dev = model(lrImg_dev) # THE PREDICTION      
             srFinImg=srImg_dev.cpu()
             n2=nSamp+srFinImg.shape[0]
             #print('nn',nSamp,n2)
@@ -129,12 +130,12 @@ def model_infer(model,data_loader,trainPar):
             # convert images are the same as flux, no exp-log conversion
             lrFin=lrFinImg.detach().numpy()
             hrFin=hrFinImg.detach().numpy()
-            hrIni=hrIniImg.detach().numpy()
+            #YhrIni=hrIniImg.detach().numpy()
             srFin=srFinImg.detach().numpy()
             #print('P2:',hrIni.shape, np.max(hrIni),np.max(hrFin),'std:',np.std(hrIni),np.std(hrFin))
 
             F.hrFin[nSamp:n2,:]=hrFin # keep all 4 slices
-            F.hrIni[nSamp:n2,:]=hrIni[:,ch1:ch1+1]    
+            #YF.hrIni[nSamp:n2,:]=hrIni[:,ch1:ch1+1]    
             F.srFin[nSamp:n2,:]=srFin
             F.lrFin[nSamp:n2,:]=lrFin
             #XF.ilrFin[nSamp:n2,:]=interpolate_field_to_hr(lrFin,upscale)

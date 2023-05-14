@@ -211,7 +211,7 @@ if __name__ == "__main__":
     if args.verb>1:   pprint(predMD); exit(0)
    
     # stage data
-    fL=[ 'lrFin', 'hrIni', 'hrFin', 'srFin']
+    fL=[ 'lrFin', 'hrFin', 'srFin']
 
     fieldD={'flux':{}, 'ln fftA2':{}}
     fieldD['flux']={ xr:bigD[xr][args.index] for xr in fL}  #XXX skip Chan-index

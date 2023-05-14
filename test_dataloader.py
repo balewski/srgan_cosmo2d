@@ -2,7 +2,7 @@
 """ 
 
 read test data from HD5
- ./test_dataloader.py   --dataName  univL7cola_dm2d_202204_c20 --facility corigpu -g 1
+shifter  ./test_dataloader.py  -g 1 -v2  --dataName  univL7cola_dm2d_202204_c20 --facility corigpu
 
 
 """
@@ -24,12 +24,12 @@ import argparse
 #...!...!..................
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--design", default='benchmk_50eaf423', help='[.hpar.yaml] configuration of model and training')
+    parser.add_argument("--design", default='benchmk_flux2', help='[.hpar.yaml] configuration of model and training')
 
     parser.add_argument("--dataName",default="flux-1LR4HR-Nyx2022a-r2c14",help="[.h5] name data  file")
     parser.add_argument("--basePath", default=None, help=' all outputs+TB+snapshots, default in hpar.yaml')
 
-    parser.add_argument("--facility", default='perlmutter', choices=['corigpu','summit','summitlogin','perlmutter'],help='computing facility where code is executed')
+    parser.add_argument("--facility", default='perlmutter', choices=['summit','summitlogin','perlmutter'],help='computing facility where code is executed')
 
     parser.add_argument("-g", "--numRanks", type=int, default=4, help="forces data partition")
     parser.add_argument("--numSamp", type=int, default=None, help="(optional) cut off num samples per epoch")
@@ -66,8 +66,6 @@ if __name__ == '__main__':
     params['facility']=args.facility
     for x in ["D_LR","G_LR"]:
         params['train_conf'][x]=facCf[x]
-
-    #?params['model_conf']['D']['fc_layers']=facCf["D_num_fc_layer"]
 
     # refine BS for multi-gpu configuration
     tmp_batch_size=facCf['batch_size']
@@ -107,15 +105,14 @@ if __name__ == '__main__':
 
     logging.info('M:loading completed')
     
-    print('M: ....... access 1st batch sample, imag=ln(rho+1)')
+    print('M: ....... access 1st batch sample, imag=flux')
     k=0
-    for  hrIniImg,lrFinImg,hrFinImg in train_loader: 
+    for  lrFinImg,hrFinImg in train_loader: 
 
-        if 1:  # get dimensions
-            print('hrIni:',hrIniImg.shape,hrIniImg.dtype,'avr:',np.mean(hrIniImg.numpy(),axis=(1,2,3)))
-            print('lrFin:',lrFinImg.shape,lrFinImg.dtype,'avr:',np.mean(lrFinImg.numpy(),axis=(1,2,3)))
+        if 1:  # get dimensions & normalization
+            print('\nlrFin:',lrFinImg.shape,lrFinImg.dtype,'avr:',np.mean(lrFinImg.numpy(),axis=(1,2,3)),'std:',np.std(lrFinImg.numpy(),axis=(1,2,3)))
         
-            print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'avr:',np.mean(hrFinImg.numpy(),axis=(1,2,3)))
+            print('hrFin:',hrFinImg.shape,hrFinImg.dtype,'avr:',np.mean(hrFinImg.numpy(),axis=(1,2,3)),'std:',np.std(hrFinImg.numpy(),axis=(1,2,3)))
 
 
         k+=1

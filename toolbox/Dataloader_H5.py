@@ -55,8 +55,7 @@ def get_data_loader(trainMD,domain, verb=1):
 
   # data dimension is know after data are read in
   cfds=conf['data_shape']
-  #?trainMD['data_shape']['hr_img']=[conf['num_inp_chan'],cfds['hr_size'],cfds['hr_size']]
-  #?trainMD['data_shape']['lr_img']=[conf['num_inp_chan'],cfds['lr_size'],cfds['lr_size']]
+  
   dataloader = DataLoader(dataset,
                           batch_size=conf['local_batch_size'],
                           num_workers=conf['num_cpu_workers'],
@@ -155,7 +154,6 @@ class Dataset_h5_srgan2D(object):
         if self.verb: logging.info('DS:file dom=%s myShard=%d, maxShard=%d, sampIdxOff=%d '%(dom,myShard,maxShard,sampIdxOff))       
         
         # data reading starts ....
-        self.data_hrIni=h5f[ cf['rec_hrIni']][sampIdxOff:sampIdxOff+locSamp]
         self.data_lrFin=h5f[ cf['rec_lrFin']][sampIdxOff:sampIdxOff+locSamp]
         self.data_hrFin=h5f[ cf['rec_hrFin']][sampIdxOff:sampIdxOff+locSamp]
         h5f.close()
@@ -163,7 +161,7 @@ class Dataset_h5_srgan2D(object):
         
         if self.verb>0 :
             startTm1 = time.time()
-            logging.info('DS: hd5 read time=%.2f(sec) dom=%s data_hrIni.shape=%s dtype=%s'%(startTm1 - startTm0,dom,str(self.data_hrIni.shape),self.data_hrIni.dtype))
+            logging.info('DS: hd5 read time=%.2f(sec) dom=%s '%(startTm1 - startTm0,dom))
             logging.info('DS: hd5  dom=%s data_lrFin.shape=%s data_hrFin.shape=%s'%(dom,str(self.data_lrFin.shape),str(self.data_hrFin.shape)))
             
         # .......................................................
@@ -171,7 +169,7 @@ class Dataset_h5_srgan2D(object):
                 
         #.... end of embeddings ........
         # .......................................................
-        self.numLocalSamp=self.data_hrIni.shape[0]
+        self.numLocalSamp=self.data_hrFin.shape[0]
         
         if 0 : # check X normalizations - from neuron inverter, never used        
             X=self.data_frames
@@ -195,12 +193,11 @@ class Dataset_h5_srgan2D(object):
         assert idx< self.numLocalSamp
 
         # primary input 
-        hrIni=self.data_hrIni[idx]
         lrFin=self.data_lrFin[idx]
         hrFin=self.data_hrFin[idx]
         if 0: # sanity 2
           print('DSI:hrIni=',hrIni.shape,hrIni.dtype)
-          print('min/max hrIni', np.min(hrIni), np.max(hrIni))
+          #print('min/max hrIni', np.min(hrIni), np.max(hrIni))
           print('min/max hrFin', np.min(hrFin), np.max(hrFin))
           print('min/max lrFin', np.min(lrFin), np.max(lrFin))
           ok99
@@ -215,18 +212,17 @@ class Dataset_h5_srgan2D(object):
 
           
         # use only one chan, convert WH to CWH
-        #hrIni=hrIni.reshape(cfds['upscale_factor'],cfds['hr_size'],cfds['hr_size'])
         lrFin=lrFin.reshape(1,cfds['lr_size'],cfds['lr_size'])
-        #hrFin=hrFin.reshape(cfds['upscale_factor'],cfds['hr_size'],cfds['hr_size'])
+       
         
         #print('DL shape  X',hrIni.shape,lrFin.shape,'Y:',hrFin.shape); b90
         # images are used w/o exp-log transform because we now ork with flux-data
-        hrIniImg=torch.from_numpy(np.copy(hrIni )) 
+        
         lrFinImg=torch.from_numpy(np.copy(lrFin )) 
         hrFinImg=torch.from_numpy(np.copy(hrFin ))
         
         # fp32-prec data 
-        return hrIniImg.float(),lrFinImg.float(),hrFinImg.float()
+        return lrFinImg.float(),hrFinImg.float()
     
         # finally cast output to fp16 - Jan could not make model to work with it
         #return lrFinImg.half(),hrIniImg.half(),hrFinImg.half()
