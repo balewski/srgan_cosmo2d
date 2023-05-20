@@ -1,0 +1,96 @@
+Defaults:
+  # this config works for flux-data
+  # note, CFS-based location will run slower vs. SCRATCH
+  cfs_out: &CFS_OUT  /global/homes/b/balewski/prje/tmp_NyxHydro_outFlux4
+  cfs_data: &CFS_DATA  /global/cfs/cdirs/m3363/balewski/superRes-Nyx2022a-flux
+  pscratch_data: &PSCR_DATA  /pscratch/sd/b/balewski/tmp_Nyx2023-flux/data
+  pscratch_out:  &PSCR_OUT   /pscratch/sd/b/balewski/tmp_Nyx2023-flux/out
+  summit_data: &AST153_PROJ  /gpfs/alpine/ast153/proj-shared/balewski/superRes-packed_h5XX/
+  summit_out: &AST153_WORLD /gpfs/alpine/world-shared/ast153/balewski/tmp_NyxHydro4kDXXX/
+
+checkpoint_interval/epochs: 5
+comment: production config for Super-Resolution using Flux
+const_local_batch: true
+# optional, reduces training samples
+#max_glob_samples_per_epoch: 256  # do 1400 or 256=BS32
+myId: 50eaf423
+
+num_cpu_workers: 8
+num_inp_chan: 1
+opt_pytorch: {autotune: true, detect_anomaly: false, zerograd: true}
+pred_dump_interval/epochs: 10
+text_log_interval/epochs: 1
+#image_flip_rot: false
+
+facility_conf:
+  perlmutter:
+    D_LR: {decay/epochs: 80, init:  0.3e-06, reduce: 0.1, warmup/epochs: 20}
+    G_LR: {decay/epochs: 120, init: 0.5e-06, reduce: 0.3, warmup/epochs: 20}  
+    #G_LR: {decay/epochs: auto, init: 1.e-06, reduce: 0.3, warmup/epochs: 20}  
+    batch_size: 2
+    base_path:  *PSCR_OUT
+    data_path:  *PSCR_DATA
+    #data_path:  *CFS_DATA
+    
+  summit:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    batch_size: 4x
+   
+
+  crusher:
+    base_path:  *AST153_WORLD
+    data_path:  *AST153_PROJ
+    D_LR: {decay/epochs: auto, init: 2.39e-05, reduce: 0.0562, warmup/epochs: 20}
+    G_LR: {decay/epochs: auto, init: 9.99e-05, reduce: 0.0288, warmup/epochs: 20}
+    batch_size: 4
+
+data_conf:
+    LR_zFin: flux_LR_z3
+    HR_zFin: flux_HR_z3
+
+model_conf:
+  D: #........... Discriminator
+    conv_block:
+      bn: [1, 0, 0, 0, 1, 0, 1]
+      filter: [32, 64, 128, 128, 256, 512, 512]
+      kernel: [2, 2, 2, 2, 2, 2, 2]
+      stride: [2, 2, 2, 2, 2, 1, 1]
+    fc_block:
+      dims: [64, 64, 32]
+      dropFrac: 0.119
+    summary_verbosity: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
+  G: # ....... Generator
+    first_cnn_chan: 32
+    num_resid_conv: 60  # was 40
+    num_upsamp_bits: 3  # was 2=zoom4
+    conv_block3: # CNN params, last chan must be 1
+       filter: [60, 30, 10,  1]
+       kernel: [ 5,  5,  5,  5]
+    summary_verbosity: 0  # 0=off, 1=layers, 2=torchsummary, 3=both
+    
+  comment: hpoA perlmutter 20220212_111627_PST
+  tb_model_graph: # null
+  
+
+qa_hpo_1gpu: {D_param_count: 13648577, G_param_count: 329778, adv_samples_per_sec: 41.54471043913954,
+  facility: perlmutter}
+
+train_conf:
+  PG_LR: {init: 0.0001}
+  pre_epochs: 20  # was 20 
+  adv_epochs: 150
+  perc_warmup/epochs: 50
+  early_stop_discr: {G_thres: 0.03, ring_size/epochs: 100}  # thres<0 means OFF
+  advers_weight: 0.16
+  content_weight: 0.8
+  fft_weight: 0.02
+  fft_max_k: 10
+  msum_weight: 0.01
+  pixel_weight: 4.0  # was 0.8  
+  resume: false
+  resume_d_weight: ''
+  resume_g_weight: ''
+  resume_p_weight: ''
+  start_epoch: 0
+  start_pre_epoch: 0

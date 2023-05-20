@@ -146,7 +146,6 @@ class Trainer(TBSwriter):
         self.msum_criterion  = integral_loss_func
 
         #.... load weights for loss functions and store them on device
-        #YYself.load_loss_norm()
         if params['world_size']>1:  self.dist.barrier()  # I want an order in execution
         
         self.content_criterion= ContentLoss().to(self.device)    # Content loss is activation(?) of 36th layer in VGG19
@@ -351,7 +350,7 @@ class Trainer(TBSwriter):
                 rec3={'train':kfac*locTrainSamp/Ttrain}  # train glob samp/msec
                 if epoch>start_epoch: TperEpoch.append(Ttot)
 
-                rec3.update({'val:10':kfac*locValSamp/Tval/10.})  # val glob samp/msec
+                rec3.update({'val:20':kfac*locValSamp/Tval/20.})  # val glob samp/msec
                 self.TBSwriter.add_scalars("Train_adv/speed_global (samp:sec)",rec3 , epoch)
                 recLab='Train_adv/epoch_time (sec), '+self.params['facility']
                 self.TBSwriter.add_scalar(recLab, Ttot,epoch)
@@ -416,7 +415,6 @@ class Trainer(TBSwriter):
         cnt={'pixel_loss':0.}
         for index, (lrFin, hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
-            #YhrIni = hrIni.to(self.device)
             lrFin = lrFin.to(self.device)
             hrFin = hrFin[:,ch1:ch1+1].to(self.device)
             
@@ -472,7 +470,6 @@ class Trainer(TBSwriter):
         
         for index, (lrFin,  hrFin) in enumerate(self.train_loader):
             # Copy the data to the specified device.
-            #YhrIni = hrIni.to(self.device)
             lrFin = lrFin.to(self.device)
             hrFin = hrFin.to(self.device)
             label_size = lrFin.size(0)
@@ -522,14 +519,14 @@ class Trainer(TBSwriter):
             advers_loss =  trCf['advers_weight'] *self.adversarial_criterion(output, real_label) # will train G to pretend it's genuine
             num_hrFin_chan=self.params['data_shape']['upscale_factor']
             cSum=0;   pSum=0; mSum=0; fSum=0
-            sr_fft=torch_compute_fft_bin0( sr, trCf['fft_max_k']) #YY/self.fft_norm_tensor
+            sr_fft=torch_compute_fft_bin0( sr, trCf['fft_max_k']) 
             #print('zzz',sr_fft.shape,self.weight_fft.shape);
             
             for hrc in range(num_hrFin_chan):
                 cSum+=self.content_criterion(sr, hrFin[:,hrc:hrc+1])
                 mSum+=self.msum_criterion(sr, hrFin[:,hrc:hrc+1])
                 pSum+=self.pixel_criterion(sr, hrFin[:,hrc:hrc+1])
-                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1], trCf['fft_max_k']) #YY/self.fft_norm_tensor
+                hr_fft=torch_compute_fft_bin0(hrFin[:,hrc:hrc+1], trCf['fft_max_k']) 
                 fSum+=self.fft_criterion(sr_fft, hr_fft)
             
             content_loss =  trCf['content_weight'] *cSum           
@@ -607,7 +604,6 @@ class Trainer(TBSwriter):
             cnt={'psnr':0.}
             for index, (lrFin, hrFin) in enumerate(self.valid_loader):
                 # Copy the data to the specified device.
-                #YhrIni = hrIni.to(self.device)
                 lrFin = lrFin.to(self.device)
                 hrFin = hrFin[:,ch1:ch1+1].to(self.device)
                 # Generate super-resolution images.

@@ -118,7 +118,7 @@ class Plotter(Plotter_Backbone):
         tit='%s,  relative %s ,    nSamp=%d'%(tagN,obsN,nSamp)
         if obsN=='flux':
             ax.set_ylim(0.4,1.6)
-            ax.set(title=tit, xlabel='flux/pixel',ylabel=' D(flux)SR / D(flux)HR' )
+            ax.set(title=tit, xlabel='Flux/pixel',ylabel=' Flux SR /HR' )
         else:  # it is FFT
             ax.set_ylim(0.4,1.6)
             ax.set(title=tit, xlabel='k(z*)',ylabel=' power(SR) / power(HR)' )

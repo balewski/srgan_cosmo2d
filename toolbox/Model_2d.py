@@ -152,7 +152,9 @@ class Generator(nn.Module):
 
         # First conv layer.        
         self.conv_block1 = nn.Sequential(
+            # torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,
             nn.Conv2d(num_inp_chan, conf['first_cnn_chan'], (9, 9), (1, 1), (4, 4)),
+            
             nn.PReLU()
         )
 
@@ -169,8 +171,13 @@ class Generator(nn.Module):
         )
 
         # Upscale conv block.
-        trunk2 = []  ; assert conf['num_upsamp_bits']==2, not_tested
-        upsamp_chan=conf['first_cnn_chan']*2*2  # because: PixelShuffle(2)
+        trunk2 = []
+        if conf['num_upsamp_bits']==2:
+            upsamp_chan=conf['first_cnn_chan']*2*2  # because: PixelShuffle(2)
+        elif conf['num_upsamp_bits']==3:
+            upsamp_chan=conf['first_cnn_chan']*2*2  # Jan: I do not understand why it is not 2*2*2 ??? 
+        else:
+            abort_not_tested
         # Rearranges elements in a tensor of shape (*, C * r^2, H, W) to a tensor of shape (*, C, H * r, W * r), where r is an upscale factor.
 
  
@@ -205,14 +212,13 @@ class Generator(nn.Module):
 
         
     def forward(self, lrFin: Tensor) -> Tensor:
-        #Yx1,x2=xx  # hrIni,lrFin
-        #print('gfx0',x1.shape,x2.shape)
+        #print('gfx0',lrFin.shape)
         return self._forward_impl(lrFin)
 
     
-    def _forward_impl(self, x2) -> Tensor:  # x2 is lrFin
+    def _forward_impl(self, x) -> Tensor:  # x is lrFin
         #print('gfx',x.shape,x.dtype)
-        out1 = self.conv_block1(x2)
+        out1 = self.conv_block1(x)
         out = self.trunk(out1)
         out2 = self.conv_block2(out)
         #print('gf2',out1.shape,out2.shape)
@@ -220,10 +226,7 @@ class Generator(nn.Module):
         #print('gf2b',out.shape)
         out = self.upsampling(out)
         #print('gf2c',out.shape)
-        #Youts= torch.cat([out, x1], dim=1)
-        #print('gf2s',outs.shape)
-        #out = self.conv_block3(out)
-        #Yx=outs
+        
         x=out
         for i,lyr in enumerate(self.conv_block3):
             #if self.verb>2: print('Jcnn-lyr: ',i,lyr)

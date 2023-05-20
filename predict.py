@@ -182,19 +182,16 @@ if __name__ == '__main__':
     trainPar=trainMD['train_params']
     trainPar['world_size']=1
     trainPar['world_rank']=0
+    trainPar['shuffle']=False # for reproducibility
     if args.numSamples!=None:
         trainPar['max_glob_samples_per_epoch' ] = args.numSamples
 
-        
-    #?trainPar['field2d'].pop('sr')
     print('trainMD:',list(trainMD))
     if args.verb>1:pprint(trainPar)
 
     # read flux& fft errors just to store them in the output
     cf=trainPar
-    #YYinpF=os.path.join(cf['h5_path'],cf['train_conf']['loss_norm_h5'])
-    #YYnormD,normMD=read4_data_hdf5(inpF)
-   
+ 
     device   = torch.device("cpu")
     #device = torch.device("cuda")
     #assert torch.cuda.is_available()
@@ -221,9 +218,7 @@ if __name__ == '__main__':
     predTime=time.time()-startT
     print('\nM: PREDICT   dom=%s samples=%d , elaT=%.2f min\n'% ( args.domain, nSamp,predTime/60.))
     #.... predictions done
-    #YYbigD['flux_std']=normD['std diff flux']
-    #YYbigD['lnfft_std']=normD['std diff log fft']
-    
+   
     sumRec={}
     sumRec['domain']=args.domain
     sumRec['exp_name']=trainPar['exp_name']

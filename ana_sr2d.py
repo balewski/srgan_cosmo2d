@@ -154,7 +154,7 @@ class Plotter(Plotter_Backbone):
             '''
         ax.set_yscale('log')
         ax.grid()
-        tit='Density,  image idx=%d '%(args.index)
+        tit='Flux,  image idx=%d '%(args.index)
         ax.set(title=tit, xlabel='flux/bin',ylabel='num bins')
         ax.legend(loc='best', title='img type')
 

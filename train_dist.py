@@ -32,7 +32,7 @@ srun -n 1  shifter  python -u ./train_dist.py   --numGlobSamp 256  --expName exp
 
 If you run SLurm scripts:
 export SLURM_ARRAY_JOB_ID=556
-export SLURM_ARRAY_TASK_ID=45
+export SLURM_ARRAY_TASK_ID=47
 ./batchShifter.slr 
 
 

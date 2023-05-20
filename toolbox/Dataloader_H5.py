@@ -39,7 +39,6 @@ import torch
 import logging
 from toolbox.Util_IOfunc import read_yaml
 from toolbox.Util_Cosmo2d import   random_flip_rot_WHC
-#from toolbox.Util_Torch import transf_field2img_torch
 
 #...!...!..................
 def get_data_loader(trainMD,domain, verb=1):
@@ -75,7 +74,6 @@ class Dataset_h5_srgan2D(object):
        
         fieldN=conf['data_conf']
         
-        conf['rec_hrIni']='%s_%s'%(domain,fieldN['HR_zIni'])
         conf['rec_lrFin']='%s_%s'%(domain,fieldN['LR_zFin'])
         conf['rec_hrFin']='%s_%s'%(domain,fieldN['HR_zFin'])
         assert conf['world_rank']>=0
@@ -122,13 +120,13 @@ class Dataset_h5_srgan2D(object):
         cfds=cf['data_shape']
         #1print('DL:inpD'); pprint(inpMD); ok45
 
-        cfds['hr_size']=h5f[cf['rec_hrIni']].shape[-1]
+        cfds['hr_size']=h5f[cf['rec_hrFin']].shape[-1]
         cfds['lr_size']=h5f[cf['rec_lrFin']].shape[-1]
-        
+        #print('ttt',cfds['hr_size'] ,cfds['upscale_factor'],cfds['lr_size'])
         assert cfds['hr_size'] ==cfds['upscale_factor']*cfds['lr_size']
        
         #print('DL:recovered meta-data with %d keys dom=%s'%(len(inpMD),dom))      
-        totSamp=h5f[cf['rec_hrIni']].shape[0]
+        totSamp=h5f[cf['rec_hrFin']].shape[0]
         
         if 'max_glob_samples_per_epoch' in cf:            
             max_samp= cf['max_glob_samples_per_epoch']
@@ -202,20 +200,12 @@ class Dataset_h5_srgan2D(object):
           print('min/max lrFin', np.min(lrFin), np.max(lrFin))
           ok99
        
-        if cf['image_flip_rot']:
-          bad_flux_cubes_not_symmetric
-          rndV=np.random.uniform(size=3)
-          #print('rrr',rndV); ok99
-          hrIni=random_flip_rot_WHC(hrIni,rndV)
-          lrFin=random_flip_rot_WHC(lrFin,rndV)
-          hrFin=random_flip_rot_WHC(hrFin,rndV)
-
           
         # use only one chan, convert WH to CWH
         lrFin=lrFin.reshape(1,cfds['lr_size'],cfds['lr_size'])
        
         
-        #print('DL shape  X',hrIni.shape,lrFin.shape,'Y:',hrFin.shape); b90
+        #print('DL shape  X',lrFin.shape,'Y:',hrFin.shape); b90
         # images are used w/o exp-log transform because we now ork with flux-data
         
         lrFinImg=torch.from_numpy(np.copy(lrFin )) 

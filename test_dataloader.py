@@ -4,6 +4,7 @@
 read test data from HD5
 shifter  ./test_dataloader.py  -g 1 -v2  --dataName  univL7cola_dm2d_202204_c20 --facility corigpu
 
+shifter  ./test_dataloader.py  -g 1 -v2 --design benchmk_flux4k --dataName flux_L80_s1-1LR8HR-Nyx4k-r1c9
 
 """
 

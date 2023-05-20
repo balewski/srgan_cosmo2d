@@ -1,6 +1,6 @@
 #!/bin/bash 
 #SBATCH  --ntasks-per-node=4 --gpus-per-task=1 --cpus-per-task=32 --exclusive
-#SBATCH -N16 --time=6:00:00  -J srBig  -q regular
+#SBATCH -N16 --time=12:00:00  -J srBig  -q regular
 #-SBATCH -N8 --time=30:00 -q debug
 #-SBATCH -C gpu -A nstaff_g
 #-SBATCH -C gpu -A  m3363_g  # Peter
@@ -15,10 +15,14 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-design=benchmk_flux2
-dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=300  # do -N16
-
+#1design=benchmk_flux2
+#1dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=300  # do -N16
 #dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=3  # ?? do -N8 : 8sec/epoch -> 180epoch/3min
+
+design=benchmk_flux4k
+#dataName=flux_L80_s1-1LR8HR-Nyx4k-r1c9;  epochs=30  # do -N1
+#dataName=flux_L80_s1-1LR8HR-Nyx4k-r2c9;  epochs=150  # do -N16 @ 43 min
+dataName=flux_L80_s1-1LR8HR-Nyx4k-r2c64;  epochs=150  # do -N16 @ 10.5 hours
 
 doHPO=0  # on/off switch
 
@@ -47,6 +51,7 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
     facility=perlmutter
     module unload pytorch
     ENGINE=" shifter "
+    export OMP_NUM_THREADS=1   # not sure if it makes any difference but w-load is now ~4 instead of 200
 fi
 
 

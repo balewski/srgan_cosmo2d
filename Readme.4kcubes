@@ -1,0 +1,52 @@
+Packing & Train on 4k cunbes from Zarija with zoom=8
+
+Packing has 2 steps:
+salloc  -C cpu -q interactive  -t4:00:00  -A m3363   -N 1
+module load pytorch
+
+
+A– harvest  LR+HR 4k flux cubes from Zarija, 1:1 content
+Source:  /pscratch/sd/z/zarija/MLHydro/
+Destination:  ls -lh   /pscratch/sd/b/balewski/tmp_Nyx2023-flux/twopack_4Kcubes
+
+Execute:
+sim_Nyx4K_Zarija> time ./make_twopack_Nyx4K.py
+
+
+
+B– slice cube into 2D smaller plains: 128 → 1k  (zoom 8)
+
+Source :  /pscratch/sd/b/balewski/tmp_Nyx2023-flux/twopack_4Kcubes
+Destination : /pscratch/sd/b/balewski/tmp_Nyx2023-flux/data
+
+Execute :
+ sim_Nyx4K_Zarija> time  ./format_twopack_2_srgan2D_1lr8hr.py
+
+
+
+shifter  ./test_dataloader.py  -g 1 -v2 --design benchmk_flux4k --dataName flux_L80_s1-1LR8HR-Nyx4k-r1c9
+
+==========
+
+ML -Testing components
+
+export MASTER_ADDR=`hostname`  
+srun -n 1  shifter  python -u ./train_dist.py -v2  --numGlobSamp 256  --expName exp2 --dataName   flux_L80_s1-1LR8HR-Nyx4k-r1c9  --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --epochs 4 --design benchmk_flux4k
+
+
+export SLURM_ARRAY_JOB_ID=556
+export SLURM_ARRAY_TASK_ID=49
+./batchShifter.slr 
+
+
+Perdictions needs to be done on a separate node - or task is killed (not enough RAM in a cgroup?)
+
+exp=556_4
+  sol=last 
+dat=/pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs
+ ./predict.py --basePath . --expName . 
+
+./ana_sr2d.py  --expName $exp --genSol $sol --dataPath $dat -p  a b  d c 
+./ana_flux.py --expName $exp --genSol $sol  --dataPath $dat  -p abc
+
+
