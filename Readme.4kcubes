@@ -18,20 +18,22 @@ B– slice cube into 2D smaller plains: 128 → 1k  (zoom 8)
 
 Source :  /pscratch/sd/b/balewski/tmp_Nyx2023-flux/twopack_4Kcubes
 Destination : /pscratch/sd/b/balewski/tmp_Nyx2023-flux/data
-
+  and permanent: /global/cfs/cdirs/m3363/balewski/superRes-???
+  
 Execute :
  sim_Nyx4K_Zarija> time  ./format_twopack_2_srgan2D_1lr8hr.py
 
 
+salloc  -C gpu -q interactive  -t4:00:00  --gpus-per-task=1 --image=nersc/pytorch:ngc-21.08-v2 -A m3363_g --ntasks-per-node=4   -N 1  
 
-shifter  ./test_dataloader.py  -g 1 -v2 --design benchmk_flux4k --dataName flux_L80_s1-1LR8HR-Nyx4k-r1c9
+shifter  ./test_dataloader.py  -g 1 -v2 --design benchmk_flux4k --dataName  flux_L80_s12-1LR8HR-Nyx4k-r2c32   --numSamp  300
 
 ==========
 
 ML -Testing components
 
 export MASTER_ADDR=`hostname`  
-srun -n 1  shifter  python -u ./train_dist.py -v2  --numGlobSamp 256  --expName exp2 --dataName   flux_L80_s1-1LR8HR-Nyx4k-r1c9  --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --epochs 4 --design benchmk_flux4k
+srun -n 1  shifter  python -u ./train_dist.py -v2  --numGlobSamp 256  --expName exp2 --dataName   flux_L80_s12-1LR8HR-Nyx4k-r2c32  --basePath /pscratch/sd/b/balewski/tmp_Nyx2022a-flux/jobs/inter  --epochs 4 --design benchmk_flux4k
 
 
 export SLURM_ARRAY_JOB_ID=556

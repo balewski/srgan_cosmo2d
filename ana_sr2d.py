@@ -55,7 +55,7 @@ class Plotter(Plotter_Backbone):
 #...!...!..................
     def image_2d(self,fieldD,metaD,plDD,myType,figId=4):
         figId=self.smart_append(figId)
-        ncol,nrow=4,1; xyIn=(17.5,4.5)
+        ncol,nrow=3,1; xyIn=(10,10)
         fig=self.plt.figure(figId,facecolor='white', figsize=xyIn)
         jy_hr=plDD['skewer_iy']
         
@@ -66,7 +66,8 @@ class Plotter(Plotter_Backbone):
                 kr+='_0'
                 img=fieldD[myType][kr]
             else:
-                img=fieldD[myType][kr][0]
+                img0=fieldD[myType][kr][0]
+                img = np.repeat(img0, 4, axis=1)
                 cmap='Blues'
                 if kr=='hrIni': # Peter: show HR-SR
                     imgHR=fieldD[myType]['hrFin'][0]
@@ -79,13 +80,15 @@ class Plotter(Plotter_Backbone):
             zScale=ax.imshow(img.T, cmap=cmap,origin='lower')
             fig.colorbar(zScale, ax=ax)
            
-            tit='%s:%d^2, idx=%d, dens=%s'%(kr,img.shape[0],args.index,myType)
+            tit='%s:%d^2, idx=%d, %s'%(kr,img.shape[0],args.index,myType)
             ax.set(title=tit)
             if 'fft' in myType:
                 ax.set( xlabel='k(x)',ylabel='k(z*)')
             else:
                 ax.set( xlabel='x',ylabel='z*')
-            
+                # Modify the y-tick labels
+                yticks = ax.get_yticks()
+                
             if kr!='lrFin' and  'fft' not in myType:
                 ax.axhline(jy_hr,linewidth=0.5,color='m')
                  

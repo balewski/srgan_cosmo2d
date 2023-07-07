@@ -6,7 +6,6 @@
 #-SBATCH -C gpu -A  m3363_g  # Peter
 #SBATCH -C gpu -A  m4194_g  # Zarija
 #SBATCH --image=nersc/pytorch:ngc-21.08-v2 
-#-SBATCH --image=nersc/pytorch:ngc-22.09-v0
 #-SBATCH  -x cgpu08 # block sick nodes
 #SBATCH --array 1-1
 # - - - E N D    O F    SLURM    C O M M A N D S
@@ -15,16 +14,8 @@
 nprocspn=${SLURM_NTASKS_PER_NODE}
 #nprocspn=1  # special case for partial use of full node
 
-#1design=benchmk_flux2
-#1dataName=flux-1LR4HR-Nyx2022a-r2c99;  epochs=300  # do -N16
-#dataName=flux-1LR4HR-Nyx2022a-r2c14;  epochs=3  # ?? do -N8 : 8sec/epoch -> 180epoch/3min
-
 design=benchmk_flux4k
-#dataName=flux_L80_s1-1LR8HR-Nyx4k-r1c9;  epochs=30  # do -N1
-#dataName=flux_L80_s1-1LR8HR-Nyx4k-r2c9;  epochs=150  # do -N16 @ 43 min
-dataName=flux_L80_s1-1LR8HR-Nyx4k-r2c64;  epochs=150  # do -N16 @ 10.5 hours
-
-doHPO=0  # on/off switch
+dataName=flux_L80_s12-1LR8HR-Nyx4k-r2c32 ;  epochs=150  #?? do -N16 -11h =330 epochs
 
 N=${SLURM_NNODES}
 G=$[ $N * $nprocspn ]
@@ -42,11 +33,7 @@ echo S:node-list $nodeList
 [[ -z "${SRCOS2D_WRK_SUFIX}" ]] && wrkSufix=$jobId || wrkSufix="${SRCOS2D_WRK_SUFIX}"
 env |grep SRCOS2D
 
-if [[  $NERSC_HOST == cori ]]   ; then
-    echo "S:on Cori-GPU"
-    facility=corigpu
-    ENGINE=" shifter "
-elif [[  $NERSC_HOST == perlmutter ]]   ; then
+if [[  $NERSC_HOST == perlmutter ]]   ; then
     echo "S:on Perlmutter"
     facility=perlmutter
     module unload pytorch
@@ -54,38 +41,6 @@ elif [[  $NERSC_HOST == perlmutter ]]   ; then
     export OMP_NUM_THREADS=1   # not sure if it makes any difference but w-load is now ~4 instead of 200
 fi
 
-
-if [ $doHPO -gt 0 ]; then
-    #....... select design from the list  START,  needs to be a job-array
-    designLib=/pscratch/sd/b/balewski/tmp_hpoA/c/
-    taskList=${designLib}/hpoSetC.list
-    maxTask=`cat ${taskList} |wc -l`
-    echo M:doHPO maxTask=$maxTask arrIdx=$arrIdx taskList=$taskList
-    # count from 1 to M
-    if [ $arrIdx -gt $maxTask ]; then
-        echo "M:arrIdx $arrIdx above maxTask=$maxTask, exit"; exit 0
-    fi
-    line=`head -n $[ $arrIdx ] $taskList |tail -n 1`
-    echo M: arrIdx=$arrIdx line=$line
-    design=`echo $line | cut -f3 -d\ `
-    localBS=`echo $line | cut -f5 -d\ `
-    sampSpeed1G=`echo $line | cut -f10 -d\ `
-    #....... select design from the list  END
-    # compute number of epochs
-    nEpoch=`python3 <<EOF
-import numpy as np
-totSamp=2700
-runTimeMnt=20 +200
-fudge=1+$G/80.  #@16 GPUs: truth 1.1, set 1.2
-epochTime=fudge*totSamp/$G/$sampSpeed1G
-maxNumEpoch=int(60*runTimeMnt/epochTime)
-#print('PYT: speed=%1f, numRank=%d, totSamp=%d, epochTime=%.1f maxNumEpoch=%d'%($sampSpeed1G,$G,totSamp,epochTime,maxNumEpoch))	
-print(maxNumEpoch)
-EOF`
-    #echo aa=$nEpoch
-    otherParStr=${otherParStr}" --epochs $nEpoch  "
-    echo HPO otherParStr=${otherParStr}=
-fi
 
 #baseDir=/global/homes/b/balewski/prje/tmp_NyxHydro_outFluxB
 baseDir=$SCRATCH/tmp_Nyx2022a-flux/jobs
@@ -96,6 +51,8 @@ echo "S: jobId=$SLURM_JOBID  wrkSufix=$wrkSufix  wrkDir=$wrkDir"
 date
 
 export CMD=" python3   -u  train_dist.py    --facility $facility   --design $design  --epochs $epochs --basePath $wrkDir  --expName  $jobId  --dataName $dataName   $otherParStr "
+
+# spare   --numGlobSamp 256 
 
 echo S: CMD=$CMD  ENGINE=$ENGINE
 codeList="  train_dist.py  predict.py  toolbox/ batchShifter.slr  *.hpar.yaml  "
